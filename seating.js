@@ -12,25 +12,17 @@ window.SEATING = {
   sections: [
     {id: "p", name: "ПАРТЕР", rows: [11,12,11,12,11,12,11,12,11,12,9,8,9,8,9]}
   ],
-  example: true,
+  // 2026-11-10: real reservations for MEGA 1st (team without a headcount = 6).
+  example: false,
   // ---- NIGHTS THIS WEEK (team name exactly as on the reservation; size = number of people) ----
   nights: [
-    {date: "2026-11-14", label: "Петък 14.11 – MEGA 1st", teams: [
-      {name: "Мозъчна атака", size: 6},
-      {name: "Гугъл не помага", size: 5},
-      {name: "Вечните втори", size: 8},
-      {name: "Пингвините", size: 4},
-      {name: "Бургаски умници", size: 7},
-      {name: "Шопска салата", size: 6},
-      {name: "Знайковци", size: 4},
-      {name: "Без жокер", size: 5},
-      {name: "Морски вълци", size: 8},
-      {name: "Пет и половина", size: 6},
-      {name: "Котките на Шрьодингер", size: 4},
-      {name: "Последен ред", size: 7}
-    ]},
-    {date: "2026-11-15", label: "Събота 15.11", teams: [
-      // add Saturday's reservations here, e.g. {name: "Отбор", size: 6},
+    {date: "2026-11-14", label: "Събота 14.11 – MEGA 1st", teams: [
+      {name: "Леля ти", size: 5},
+      {name: "Номер 1", size: 2},
+      {name: "Go Go's Girls", size: 5},
+      {name: "The Sunshines", size: 7},
+      {name: "Masters", size: 8},
+      {name: "F.R.I.E.N.D.S.", size: 6}
     ]}
   ]
   // ---- end of nights ----
