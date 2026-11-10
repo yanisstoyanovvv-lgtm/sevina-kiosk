@@ -1,14 +1,14 @@
-@font-face{font-family:Rubik;src:url(fonts/Rubik.ttf?v=759a387e57) format("truetype");font-weight:100 900}
-@font-face{font-family:"Lobster Two";src:url(fonts/LobsterTwo-Bold.ttf?v=759a387e57) format("truetype");font-weight:700}
-@font-face{font-family:KEmoji;src:url(fonts/NotoColorEmoji-subset.ttf?v=759a387e57) format("truetype")}
+@font-face{font-family:Rubik;src:url(fonts/Rubik.ttf?v=bc75b358c8) format("truetype");font-weight:100 900}
+@font-face{font-family:"Lobster Two";src:url(fonts/LobsterTwo-Bold.ttf?v=bc75b358c8) format("truetype");font-weight:700}
+@font-face{font-family:KEmoji;src:url(fonts/NotoColorEmoji-subset.ttf?v=bc75b358c8) format("truetype")}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;overflow:hidden;background:#140820;overscroll-behavior:none;touch-action:pan-x pan-y;cursor:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 *{cursor:none!important}
 button{font:inherit;color:inherit;border:0;cursor:none;touch-action:manipulation}
 #stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;overflow:hidden;font-family:Rubik,KEmoji,"Noto Color Emoji",sans-serif;color:#fff;background:#2a1240}
-.screen{position:absolute;inset:0;background:url(assets/bg-corners-portrait.jpg?v=759a387e57) center/cover;opacity:0;visibility:hidden;transform:translateY(24px);transition:opacity .35s ease,transform .35s ease,visibility 0s .35s}
+.screen{position:absolute;inset:0;background:url(assets/bg-corners-portrait.jpg?v=bc75b358c8) center/cover;opacity:0;visibility:hidden;transform:translateY(24px);transition:opacity .35s ease,transform .35s ease,visibility 0s .35s}
 .screen.active{opacity:1;visibility:visible;transform:none;transition:opacity .35s ease,transform .35s ease}
-.home{background:linear-gradient(rgba(20,8,32,.78),rgba(20,8,32,.88)),url(assets/title-portrait.jpg?v=759a387e57) center/cover}
+.home{background:linear-gradient(rgba(20,8,32,.78),rgba(20,8,32,.88)),url(assets/title-portrait.jpg?v=bc75b358c8) center/cover}
 .wrap{padding:70px 70px 0;height:1920px;display:flex;flex-direction:column}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
 .back{background:#FFD54F;color:#2a1240;font-weight:800;font-size:44px;padding:26px 44px;border-radius:60px;box-shadow:0 8px 0 #b8901f;min-height:100px}
