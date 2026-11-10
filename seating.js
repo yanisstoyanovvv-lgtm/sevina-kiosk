@@ -22,7 +22,8 @@ window.SEATING = {
       {name: "Go Go's Girls", size: 5},
       {name: "The Sunshines", size: 7},
       {name: "Masters", size: 8},
-      {name: "F.R.I.E.N.D.S.", size: 6}
+      {name: "F.R.I.E.N.D.S.", size: 6},
+      {name: "Черно и Бяло", size: 6}
     ]}
   ]
   // ---- end of nights ----
