@@ -1,7 +1,7 @@
-/* Sevina kiosk service worker – version 12927c6042 */
-var VERSION = "12927c6042";
+/* Sevina kiosk service worker – version 2c291a8eb4 */
+var VERSION = "2c291a8eb4";
 var CACHE = "sevina-kiosk-" + VERSION;
-var PRECACHE = ["./", "style.css?v=12927c6042", "config.js?v=12927c6042", "seating.js?v=12927c6042", "app.js?v=12927c6042", "assets/bg-corners-portrait.jpg?v=12927c6042", "assets/brain.png?v=12927c6042", "assets/title-portrait.jpg?v=12927c6042", "fonts/LobsterTwo-Bold.ttf?v=12927c6042", "fonts/NotoColorEmoji-subset.ttf?v=12927c6042", "fonts/Rubik.ttf?v=12927c6042"];
+var PRECACHE = ["./", "style.css?v=2c291a8eb4", "config.js?v=2c291a8eb4", "seating.js?v=2c291a8eb4", "app.js?v=2c291a8eb4", "assets/bg-corners-portrait.jpg?v=2c291a8eb4", "assets/brain.png?v=2c291a8eb4", "assets/title-portrait.jpg?v=2c291a8eb4", "fonts/LobsterTwo-Bold.ttf?v=2c291a8eb4", "fonts/NotoColorEmoji-subset.ttf?v=2c291a8eb4", "fonts/Rubik.ttf?v=2c291a8eb4"];
 var NAV_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", function (e) {
