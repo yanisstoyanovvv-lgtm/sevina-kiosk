@@ -190,10 +190,10 @@ var tT;function toast(m){var t=$("#toast");t.textContent=m;t.classList.add("show
 
 
 /* ---------- seating ---------- */
-var SEAT_COL=["#e85d75","#4fc3f7","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#aed581","#7986cb","#ffd54f","#a1887f","#90a4ae"];
+var SEAT_COL=["#e85d75","#4fc3f7","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#aed581","#7986cb","#ffd54f","#a1887f","#90a4ae","#4dd0e1","#dce775"];
 function isBlocked(sec,r,s){var b=(sec.blocked||{})[r];return !!b&&b.indexOf(s)>=0}
 // bands = rows (1,2),(3,4)… of each section in order; each band = free segments of seats usable in BOTH rows.
-function allocateSeats(teams,sections,band){band=band||2;var items=teams.map(function(t,i){return {name:t.name,size:+t.size,i:i}}).sort(function(a,b){return b.size-a.size||a.i-b.i});
+function allocateSeats(teams,sections,band){band=band||2;var items=teams.map(function(t,i){return {name:t.name,size:+t.size,i:t._i!=null?t._i:i}}).sort(function(a,b){return b.size-a.size||a.i-b.i});
   var bands=[],maxW=0,out={};
   sections.forEach(function(sec){for(var r=1;r+band-1<=sec.rows.length;r+=band){var n=Infinity,k;for(k=0;k<band;k++)n=Math.min(n,sec.rows[r-1+k]);
     var segs=[],cur=null;for(var s=1;s<=n;s++){var bl=false;for(k=0;k<band;k++)if(isBlocked(sec,r+k,s))bl=true;
@@ -205,9 +205,21 @@ function allocateSeats(teams,sections,band){band=band||2;var items=teams.map(fun
     var cells=[];for(var r=0;r<band;r++)for(var c=0;c<w;c++)cells.push([hit.B.r0+r,hit.s0+c]);cells=cells.slice(0,t.size);
     out[t.name]={sec:hit.B.sec.id,secName:hit.B.sec.name,r0:hit.B.r0,r1:hit.B.r0+band-1,s0:hit.s0,s1:hit.s0+w-1,cells:cells,i:t.i}});return out}
 window.__allocateSeats=allocateSeats;
+// fixed seats from seating.js: team.seats=[[row,from,to],…] (or [{row,seat}…]) → exact cells; other teams auto-allocated around them
+function fixedSeats(teams,sections){var sec=sections[0],out={},taken={},rest=[];
+  teams.forEach(function(t,i){if(!t||!norm(t.name))return;if(!t.seats||!t.seats.length){rest.push({name:t.name,size:t.size,_i:i});return}
+    var cells=[];t.seats.forEach(function(x){if(Array.isArray(x)){var a=Math.min(x[1],x[2]==null?x[1]:x[2]),b=Math.max(x[1],x[2]==null?x[1]:x[2]);for(var s=a;s<=b;s++)cells.push([+x[0],s])}else cells.push([+x.row,+x.seat])});
+    cells=cells.filter(function(c){return c[0]>=1&&c[0]<=sec.rows.length&&c[1]>=1&&c[1]<=sec.rows[c[0]-1]});if(!cells.length){rest.push({name:t.name,size:t.size,_i:i});return}
+    var rs=cells.map(function(c){return c[0]}),ss=cells.map(function(c){return c[1]});
+    cells.forEach(function(c){(taken[c[0]]=taken[c[0]]||[]).push(c[1])});
+    out[norm(t.name)]={sec:sec.id,secName:sec.name,r0:Math.min.apply(null,rs),r1:Math.max.apply(null,rs),s0:Math.min.apply(null,ss),s1:Math.max.apply(null,ss),cells:cells,i:i,fixed:true}});
+  if(rest.length){var bl={},k;for(k in sec.blocked||{})bl[k]=sec.blocked[k].slice();for(k in taken)bl[k]=(bl[k]||[]).concat(taken[k]);
+    var A2=allocateSeats(rest,[{id:sec.id,name:sec.name,rows:sec.rows,blocked:bl}].concat(sections.slice(1)));for(k in A2)out[k]=A2[k]}
+  return out}
+window.__fixedSeats=fixedSeats;
 (function(){var D=window.SEATING||{teams:[]},SEC=D.sections||[],map=$("#smap"),leg=$("#sleg"),hi=null,A;
   if(D.example===false)$("#sex").remove();
-  try{A=allocateSeats(D.teams||[],SEC)}catch(err){map.outerHTML='<div class="serr">⚠️ '+err.message+'</div>';return}
+  try{A=(D.teams||[]).some(function(t){return t&&t.seats&&t.seats.length})?fixedSeats(D.teams||[],SEC):allocateSeats(D.teams||[],SEC)}catch(err){map.outerHTML='<div class="serr">⚠️ '+err.message+'</div>';return}
   var esc=function(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
   var M=0;SEC.forEach(function(s){s.rows.forEach(function(n){M=Math.max(M,n)})});
   var occ={};Object.keys(A).forEach(function(n){A[n].cells.forEach(function(c){occ[A[n].sec+","+c[0]+","+c[1]]=n})});
@@ -222,10 +234,15 @@ window.__allocateSeats=allocateSeats;
         h+='<div class="seat'+(bl?' x':'')+(t?' t':'')+'"'+(t?' data-team="'+esc(t)+'" style="background:'+SEAT_COL[A[t].i%SEAT_COL.length]+';':' style="')+'grid-row:'+g+';grid-column:'+col(n,s)+'/span 2">'+s+'</div>'}
       g++}});
   Object.keys(A).forEach(function(n){var a=A[n],sec=SEC.filter(function(x){return x.id===a.sec})[0];
+    if(a.fixed){var lo={},hi2={},c0=-1e9,c1=1e9;a.cells.forEach(function(c){var x=col(sec.rows[c[0]-1],c[1]);lo[c[0]]=Math.min(lo[c[0]]==null?1e9:lo[c[0]],x);hi2[c[0]]=Math.max(hi2[c[0]]==null?-1e9:hi2[c[0]],x+2)});
+      Object.keys(lo).forEach(function(r){c0=Math.max(c0,lo[r]);c1=Math.min(c1,hi2[r])});   // label over the seats common to all rows of the block
+      h+='<button class="blk" data-team="'+esc(n)+'" style="grid-row:'+gr[a.sec+","+a.r0]+'/'+(gr[a.sec+","+a.r1]+1)+';grid-column:'+c0+'/'+c1+';background:'+SEAT_COL[a.i%SEAT_COL.length]+'">'+esc(n)+'</button>';return}
     var c0=Math.min(col(sec.rows[a.r0-1],a.s1),col(sec.rows[a.r1-1],a.s1)),c1=Math.max(col(sec.rows[a.r0-1],a.s0),col(sec.rows[a.r1-1],a.s0))+2;
     h+='<button class="blk" data-team="'+esc(n)+'" style="grid-row:'+gr[a.sec+","+a.r0]+'/'+(gr[a.sec+","+a.r1]+1)+';grid-column:'+c0+'/'+c1+';background:'+SEAT_COL[a.i%SEAT_COL.length]+'">'+esc(n)+'</button>'});
   map.style.gridTemplateColumns="44px repeat("+(2*M)+",1fr) 44px";map.innerHTML=h;
-  leg.innerHTML=Object.keys(A).sort(function(a,b){return a.localeCompare(b,"bg")}).map(function(n){var a=A[n];return '<button class="li" data-team="'+esc(n)+'"><i style="background:'+SEAT_COL[a.i%SEAT_COL.length]+'"></i><div>'+esc(n)+'<small>Ред '+a.r0+'–'+a.r1+', места '+a.s0+'–'+a.s1+'</small></div></button>'}).join("");
+  leg.innerHTML=Object.keys(A).sort(function(a,b){return a.localeCompare(b,"bg")}).map(function(n){var a=A[n];return '<button class="li" data-team="'+esc(n)+'"><i style="background:'+SEAT_COL[a.i%SEAT_COL.length]+'"></i><div>'+esc(n)+'<small>'+seatTxt(a)+'</small></div></button>'}).join("");
+  function seatTxt(a){if(!a.fixed)return 'Ред '+a.r0+'–'+a.r1+', места '+a.s0+'–'+a.s1;var by={};a.cells.forEach(function(c){(by[c[0]]=by[c[0]]||[]).push(c[1])});
+    return Object.keys(by).map(Number).sort(function(x,y){return x-y}).map(function(r){var s=by[r].sort(function(x,y){return x-y});return 'Ред '+r+': '+(s.length>1&&s[s.length-1]-s[0]===s.length-1?s[0]+'–'+s[s.length-1]:s.join(', '))}).join(' · ')}
   function set(n){hi=n;map.classList.toggle("dim",!!n);$$("#seating [data-team]").forEach(function(x){x.classList.toggle("hi",x.dataset.team===n)})}
   document.getElementById("seating").addEventListener("click",function(e){var t=e.target.closest("[data-team]");if(!t)return;set(hi===t.dataset.team?null:t.dataset.team)});
   window.__seating={A:A,set:set,reset:function(){set(null)}};
