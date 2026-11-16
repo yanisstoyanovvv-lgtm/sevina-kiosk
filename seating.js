@@ -18,16 +18,44 @@
 
 window.SEATING = {
   layout: {id: "v19", map: "map-v19.svg"},
-  example: false,
+  example: true,
   // ---- NIGHTS THIS WEEKEND ----
   // Fill `teams` after reservations come in. Add table:"T1" (or tables:["T1","T2"])
   // only after Yanis assigns a table. Leave table out if the team is not seated yet.
   nights: [
     {date: "2026-11-20", label: "Петък 20.11 – тематичен", type: "themed", theme: "🌍 Около света", teams: [
-      // {name: "Име на отбора", size: 6, table: "T1"}
+      {name: "Примерен отбор А", size: 6, table: "T1"},
+      {name: "Примерен отбор Б", size: 6, table: "T2"},
+      {name: "Примерен отбор В", size: 6, table: "T3"},
+      {name: "Примерен отбор Г", size: 6, table: "T4"},
+      {name: "Примерен отбор Д", size: 6, table: "T5"},
+      {name: "Примерен отбор Е", size: 6, table: "T6"},
+      {name: "Примерен отбор Ж", size: 6, table: "T7"},
+      {name: "Примерен отбор З", size: 6, table: "T8"},
+      {name: "Примерен отбор И", size: 6, table: "T9"},
+      {name: "Примерен отбор Й", size: 6, table: "T10"},
+      {name: "Примерен отбор К", size: 6, table: "T11"},
+      {name: "Примерен отбор Л", size: 6, table: "T12"},
+      {name: "Примерен отбор М", size: 8, tables: ["T13","T14"]},
+      {name: "Примерен отбор Н", size: 6, table: "T15"},
+      {name: "Примерен отбор О", size: 6, table: "T16"}
     ]},
     {date: "2026-11-21", label: "Събота 21.11 – общи знания", type: "gk", teams: [
-      // {name: "Име на отбора", size: 6, table: "T2"}
+      {name: "Примерен отбор А", size: 6, table: "T1"},
+      {name: "Примерен отбор Б", size: 6, table: "T2"},
+      {name: "Примерен отбор В", size: 6, table: "T3"},
+      {name: "Примерен отбор Г", size: 6, table: "T4"},
+      {name: "Примерен отбор Д", size: 6, table: "T5"},
+      {name: "Примерен отбор Е", size: 6, table: "T6"},
+      {name: "Примерен отбор Ж", size: 6, table: "T7"},
+      {name: "Примерен отбор З", size: 6, table: "T8"},
+      {name: "Примерен отбор И", size: 6, table: "T9"},
+      {name: "Примерен отбор Й", size: 6, table: "T10"},
+      {name: "Примерен отбор К", size: 6, table: "T11"},
+      {name: "Примерен отбор Л", size: 6, table: "T12"},
+      {name: "Примерен отбор М", size: 8, tables: ["T13","T14"]},
+      {name: "Примерен отбор Н", size: 6, table: "T15"},
+      {name: "Примерен отбор О", size: 6, table: "T16"}
     ]}
   ]
   // ---- end of nights ----

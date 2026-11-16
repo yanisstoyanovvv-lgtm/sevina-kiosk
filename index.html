@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="app-version" content="seat19">
+<meta name="app-version" content="seatdemo">
 <title>Sevina 2.0 Quiz – киоск</title>
-<link rel="stylesheet" href="style.css?v=seat19">
+<link rel="stylesheet" href="style.css?v=seatdemo">
 </head>
 <body>
 <div id="stage">
@@ -14,7 +14,7 @@
 <section id="home" class="screen home six active" data-t="0">
   <div class="wrap">
     <div class="hero">
-      <img class="herobrain logo" src="assets/brain.png?v=seat19" alt="">
+      <img class="herobrain logo" src="assets/brain.png?v=seatdemo" alt="">
       <div class="htitle">Sevina 2.0 Quiz</div>
       <div class="hsub">Докосни бутон, за да научиш повече 👇</div>
     </div>
@@ -31,7 +31,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Как протича тази куиз вечер?</h1>
     <div class="card" id="kakvo-card" style="--f:41px;--g:16px"></div>
@@ -43,7 +43,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Правила и точкуване</h1>
     <div class="card" style="--f:44px;--g:22px">
@@ -64,7 +64,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" id="sback" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 id="stand-title">Сезонно класиране</h1>
     <div id="stand-home">
@@ -102,7 +102,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="st">🪑 Къде седи отборът ти?</h1>
     <div class="ssub" id="ssub">Докоснете името на отбора си, за да видите къде седите</div>
@@ -121,7 +121,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>👋 За нас</h1>
     <div class="card" style="--f:34px;--g:14px">
@@ -140,7 +140,7 @@
   <div class="wrap vscroll">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=seat19" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=seatdemo" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="vt">🗳️ Ти избираш темата!</h1>
     <p class="vsub">Гласувай за темата на следващата тематична куиз вечер в петък.</p>
@@ -190,7 +190,7 @@
 <section id="thanks" class="screen" data-t="15">
   <div class="wrap">
     <div class="tbox">
-      <img class="herobrain" src="assets/brain.png?v=seat19" alt="">
+      <img class="herobrain" src="assets/brain.png?v=seatdemo" alt="">
       <div class="t1">✅ Благодарим!</div>
       <div class="t2">Гласът ти е записан.</div>
       <div class="tally">
@@ -217,12 +217,12 @@
 <div id="toast"></div>
 </div>
 
-<script src="config.js?v=seat19"></script>
-<script src="seating.js?v=seat19"></script>
-<script src="app.js?v=seat19"></script>
+<script src="config.js?v=seatdemo"></script>
+<script src="seating.js?v=seatdemo"></script>
+<script src="app.js?v=seatdemo"></script>
 <script>
 (function(){
-  window.APP_VERSION="seat19";
+  window.APP_VERSION="seatdemo";
   if(!("serviceWorker" in navigator)) return;
   var hadController=!!navigator.serviceWorker.controller, pending=false;
   function doReload(){

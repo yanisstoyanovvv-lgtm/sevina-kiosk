@@ -580,7 +580,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     if(hi) set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=seat19";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=seatdemo";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
