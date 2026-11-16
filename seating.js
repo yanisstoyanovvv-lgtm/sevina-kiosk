@@ -1,38 +1,33 @@
-// ===== THIS WEEK'S RESERVATIONS – EDIT THIS FILE ONLY (once per voting week) =====
-// Voting week = Wednesday 00:00 → Tuesday 23:59 (Sofia). Put the week's quiz nights (Fri, Sat) in `nights`.
-// Each night's `teams` list (name + number of people) is used for:
-//   1) the seating map ("Къде седи отборът ти?") – the kiosk shows tonight's night (or the next one this week),
-//   2) the team dropdown on the vote screen – ALL teams of the week's nights (a team on both nights appears once),
-//   3) the vote cap – a team can cast at most `size` votes per voting week (one per person), enforced by the server.
-// Per week: replace the `nights` block (date yyyy-mm-dd, label, teams). Set example:false once the real reservations are in.
-// Seats: if a team has `seats`, exactly those seats are shown (fixed plan); teams without `seats` are allocated automatically
-// (2-row blocks, biggest first, around the fixed seats). seats = [[row, fromSeat, toSeat], ...]. Seat 1 is on the right (as on the cinema plan).
-// To RENAME a team: change only the text in name:"…" on its line (seats and size stay). Votes are counted per team name.
+// ===== SEVINA KIOSK – layout + weekly nights =====
+// Edit this file once per weekend (after Yanis seats the teams).
+// Do NOT invent table assignments — leave `table` empty until a table is assigned.
+//
+// layout: v19 restaurant floor (stable). SVG map: map-v19.svg
+//   Table ids T1–T16 match the key in restaurant-plan/plan-v16.md (updated in plan-v19.md):
+//     Hall:     T1/T3 left column (T3 above T1), T2/T4 right column (T4 above T2)
+//     Upper:    T5 T6 T7 T8 (left → right). T7 above T1/T3, T8 above T2/T4
+//     Lower:    T9–T12 inner row (left → right), T13–T15 outer row, T16 corner
+//
+// nights: this weekend's quiz nights. type is "themed" (Friday) or "gk" (Saturday).
+//   themed nights need `theme` (shown on the info page).
+//   teams: [{name, size, table:"T1"}]   size = headcount = vote cap
+//          or  [{name, size, tables:["T7","T8"]}] if a team has more than one table
+//   The vote dropdown lists ALL teams of the weekend (Fri+Sat). The map shows tonight's night.
+//
+// example: true shows an "example teams" hint; set false once real reservations are in.
+
 window.SEATING = {
-  // Cinema layout (exact plan). rows[i] = seats in row i+1 (row 1 = closest to the stage). blocked = unavailable seats.
-  sections: [
-    {id: "p", name: "ПАРТЕР", rows: [11,12,11,12,11,12,11,12,11,12,9,8,9,8,9]}
-  ],
-  // 2026-11-14: FIXED plan approved by Yanis (blocks 1–14 = rows 1+2 … 13+14, odd = left, even = right; 7 seats each,
-  // Masters 9; row 15 and middle seats empty). Go Go's Girls removed. size = real headcount = vote cap.
+  layout: {id: "v19", map: "map-v19.svg"},
   example: false,
-  // ---- NIGHTS THIS WEEK (team name exactly as on the reservation; size = number of people) ----
+  // ---- NIGHTS THIS WEEKEND ----
+  // Fill `teams` after reservations come in. Add table:"T1" (or tables:["T1","T2"])
+  // only after Yanis assigns a table. Leave table out if the team is not seated yet.
   nights: [
-    {date: "2026-11-14", label: "Събота 14.11 – MEGA 1st", teams: [
-      {name: "Masters", size: 8, seats: [[1,8,11],[2,8,12]]},   // блок 1 (ляво)
-      {name: "The Sunshines", size: 7, seats: [[2,1,4],[1,1,3]]},   // блок 2 (дясно)
-      {name: "Бжижек", size: 6, seats: [[4,9,12],[3,9,11]]},   // блок 3 (ляво)
-      {name: "Антракс", size: 6, seats: [[4,1,4],[3,1,3]]},   // блок 4 (дясно)
-      {name: "Съквартирантите", size: 4, seats: [[6,9,12],[5,9,11]]},   // блок 5 (ляво)
-      {name: "Домакините", size: 6, seats: [[6,1,4],[5,1,3]]},   // блок 6 (дясно)
-      {name: "Леля ти", size: 7, seats: [[8,9,12],[7,9,11]]},   // блок 7 (ляво)
-      {name: "Черно и Бяло", size: 6, seats: [[8,1,4],[7,1,3]]},   // блок 8 (дясно)
-      {name: "Наглите", size: 6, seats: [[10,9,12],[9,9,11]]},   // блок 9 (ляво)
-      {name: "сРали сме в читалището", size: 6, seats: [[10,1,4],[9,1,3]]},   // блок 10 (дясно)
-      {name: "Стефан?", size: 5, seats: [[11,6,9],[12,6,8]]},   // блок 11 (ляво)
-      {name: "Ойт", size: 7, seats: [[11,1,4],[12,1,3]]},   // блок 12 (дясно)
-      {name: "F.R.I.E.N.D.S.", size: 6, seats: [[13,6,9],[14,6,8]]},   // блок 13 (ляво)
-      {name: "Стрелата", size: 6, seats: [[13,1,4],[14,1,3]]}    // блок 14 (дясно)
+    {date: "2026-11-20", label: "Петък 20.11 – тематичен", type: "themed", theme: "🌍 Около света", teams: [
+      // {name: "Име на отбора", size: 6, table: "T1"}
+    ]},
+    {date: "2026-11-21", label: "Събота 21.11 – общи знания", type: "gk", teams: [
+      // {name: "Име на отбора", size: 6, table: "T2"}
     ]}
   ]
   // ---- end of nights ----

@@ -2,18 +2,22 @@
 "use strict";
 var C=window.CONFIG||{};var qs=new URLSearchParams(location.search);
 var KIOSK=qs.get("kiosk")||C.KIOSK_ID||"1";
-var SPEED=parseFloat(qs.get("fast")||"1")||1;        // test mode: ?fast=10 → timers 10× faster
+var SPEED=parseFloat(qs.get("fast")||"1")||1;
 var URL_=(qs.get("api")||C.WEB_APP_URL||"").trim();
 var QKEY="sevina.voteQueue.v1",VKEY="sevina.voted.v1",SKEY="sevina.sent.v1",RKEY="sevina.rejected.v1";
 var $=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
 var stage=$("#stage");
+var TZ="Europe/Sofia";
 
 /* ---------- scaling (9:16, letterbox) ---------- */
 var baseH=0;
 function fit(){var w=innerWidth,h=innerHeight;
-  // when the on-screen keyboard is open, the viewport shrinks: keep the previous scale, don't shrink the UI
   if(document.activeElement&&document.activeElement.tagName==="INPUT"&&baseH&&h<baseH)h=baseH;else baseH=h;
-  var s=Math.min(w/1080,h/1920);stage.style.transform="translate("+((w-1080*s)/2)+"px,"+Math.max(0,(h-1920*s)/2)+"px) scale("+s+")";}
+  var land=w>h&&cur==="seating";
+  document.body.classList.toggle("land",!!land);
+  var W=land?1920:1080,H=land?1080:1920;
+  stage.style.width=W+"px";stage.style.height=H+"px";
+  var s=Math.min(w/W,h/H);stage.style.transform="translate("+((w-W*s)/2)+"px,"+Math.max(0,(h-H*s)/2)+"px) scale("+s+")";}
 addEventListener("resize",fit);fit();
 
 /* ---------- block zoom / context menu / pull-to-refresh ---------- */
@@ -22,12 +26,37 @@ document.addEventListener("touchmove",function(e){if(e.touches.length>1){e.preve
 document.addEventListener("wheel",function(e){if(e.ctrlKey)e.preventDefault()},{passive:false});
 var lastTouch=0;document.addEventListener("touchend",function(e){var n=Date.now();if(n-lastTouch<300&&e.target.tagName!=="INPUT")e.preventDefault();lastTouch=n},{passive:false});
 
+/* ---------- clock (optional ?sim=YYYY-MM-DDTHH:MM as Europe/Sofia wall time) ---------- */
+function sofia(ms){
+  var d=new Date(ms==null?nowMs():ms);
+  try{var o={};new Intl.DateTimeFormat("en-GB",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(d).forEach(function(x){o[x.type]=x.value});
+    return {y:+o.year,m:+o.month,d:+o.day,u:{Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7}[o.weekday],h:+o.hour,min:+o.minute,sec:+o.second};}
+  catch(e){return {y:d.getFullYear(),m:d.getMonth()+1,d:d.getDate(),u:d.getDay()||7,h:d.getHours(),min:d.getMinutes(),sec:d.getSeconds()};}}
+function ymd(y,m,d){return new Date(Date.UTC(y,m-1,d)).toISOString().slice(0,10)}
+var SIM=null;
+(function(){
+  var s=qs.get("sim"); if(!s) return;
+  var m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/); if(!m) return;
+  var y=+m[1],mo=+m[2],d=+m[3],h=+(m[4]||0),mi=+(m[5]||0),se=+(m[6]||0);
+  var guess=Date.UTC(y,mo-1,d,h-2,mi,se);
+  for(var i=0;i<4;i++){var p=sofia(guess);var have=Date.UTC(p.y,p.m-1,p.d,p.h,p.min,p.sec||0);var want=Date.UTC(y,mo-1,d,h,mi,se);guess+=want-have;}
+  SIM=guess;
+})();
+function nowMs(){return SIM!=null?SIM:Date.now()}
+// 02:00 belongs to the previous calendar day.
+function nightDay(ms){var p=sofia(ms==null?nowMs():ms); if(p.h<2){return {y:p.y,m:p.m,d:p.d-1,u:p.u===1?7:p.u-1,h:p.h,min:p.min,before2:true}} return {y:p.y,m:p.m,d:p.d,u:p.u,h:p.h,min:p.min,before2:false}}
+function weekKey(ms){var n=nightDay(ms==null?nowMs():ms); var back=(n.u+2)%7; return ymd(n.y,n.m,n.d-back)} // Friday of the weekend
+function nightDate(ms){var p=sofia((ms==null?nowMs():ms)-6*3600000); return ymd(p.y,p.m,p.d)} // before 06:00 = previous evening
+function voteOpen(ms){var p=sofia(ms==null?nowMs():ms), n=nightDay(ms==null?nowMs():ms); if(n.u!==5&&n.u!==6) return false; if(p.h<2) return true; return p.h>=16}
+window.__week={weekKey:weekKey,nightDate:nightDate,voteOpen:voteOpen,nowMs:nowMs,sofia:sofia};
+
 /* ---------- navigation + inactivity timer ---------- */
 var cur="home",deadline=0,total=0,tick=null;
 function go(id){var nx=$("#"+id);if(!nx)return;var old=$(".screen.active");if(old===nx){arm();return}
-  if(old){old.classList.remove("active");if(old.id==="vote")resetVote();if(old.id==="seating"&&window.__seating)window.__seating.reset()}
+  if(old){old.classList.remove("active");if(old.id==="vote")resetVote();if(old.id==="seating"&&window.__seating)window.__seating.reset();if(old.id==="klasirane"&&window.__standings)window.__standings.home()}
   nx.classList.add("active");cur=id;var sc=$(".vscroll",nx);if(sc)sc.scrollTop=0;
-  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();arm();}
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();fit();arm();
+  if(id==="vote")syncVoteView();}
 function arm(){var t=+($("#"+cur).dataset.t||0);clearInterval(tick);if(!t){deadline=0;return}
   total=t*1000/SPEED;deadline=Date.now()+total;render();tick=setInterval(render,250/Math.max(1,SPEED/4));}
 function render(){if(!deadline)return;var left=deadline-Date.now(),scr=$("#"+cur);
@@ -36,7 +65,10 @@ function render(){if(!deadline)return;var left=deadline-Date.now(),scr=$("#"+cur
   if(left<=0){clearInterval(tick);deadline=0;go("home")}}
 function activity(){if(deadline&&!adminOpen())arm()}
 ["pointerdown","touchstart","keydown","input"].forEach(function(t){document.addEventListener(t,activity,{passive:true,capture:true})});
-document.addEventListener("click",function(e){var g=e.target.closest("[data-go]");if(g)go(g.dataset.go)});
+document.addEventListener("click",function(e){
+  var g=e.target.closest("[data-go]"); if(!g) return;
+  go(g.dataset.go);
+});
 window.__kiosk={go:go,get cur(){return cur}};
 
 /* ---------- validation ---------- */
@@ -60,29 +92,57 @@ function check(raw,kind){var s=norm(raw),max=kind==="name"?40:50,lbl=kind==="nam
   if(flat.length>=6&&new Set(flat).size<=2)return "Хм, това прилича на случайно натиснати клавиши 🙂 Моля, напиши истинско име.";
   return "";}
 window.__check=check;
+var escH=function(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
 
-/* ---------- voting week (Wed 00:00 → Tue 23:59, Europe/Sofia) ---------- */
-var TZ="Europe/Sofia";
-function sofia(ms){var d=new Date(ms==null?Date.now():ms);try{var o={};new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"}).formatToParts(d).forEach(function(x){o[x.type]=x.value});
-    return {y:+o.year,m:+o.month,d:+o.day,u:{Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7}[o.weekday]}}
-  catch(e){return {y:d.getFullYear(),m:d.getMonth()+1,d:d.getDate(),u:d.getDay()||7}}}
-function ymd(y,m,d){return new Date(Date.UTC(y,m-1,d)).toISOString().slice(0,10)}
-function weekKey(ms){var p=sofia(ms);return ymd(p.y,p.m,p.d-(p.u+4)%7)}       // date of the Wednesday the week starts on
-function nightDate(ms){var p=sofia((ms==null?Date.now():ms)-6*3600000);return ymd(p.y,p.m,p.d)} // before 06:00 = previous evening
-window.__week={weekKey:weekKey,nightDate:nightDate};
-
-/* ---------- this week's nights + teams (seating.js) ---------- */
+/* ---------- this weekend's nights + teams (seating.js) ---------- */
 var D0=window.SEATING||{},NIGHTS=(D0.nights||[]).filter(function(n){return n&&n.teams}),CUR_WEEK=weekKey(),WEEK_OK=true,NIGHT=null;
 if(NIGHTS.length){
   var srt=NIGHTS.filter(function(n){return n.date}).sort(function(a,b){return a.date<b.date?-1:1}),td=nightDate();
   NIGHT=srt.filter(function(n){return n.date===td})[0]||srt.filter(function(n){return n.date>td})[0]||srt[srt.length-1]||NIGHTS[0];
-  D0.teams=NIGHT.teams;D0.night=NIGHT.label||NIGHT.date;   // the seating map shows tonight's (or the next) night
-  var wk=NIGHTS.filter(function(n){return n.date&&weekKey(Date.parse(n.date+"T12:00:00Z"))===CUR_WEEK});
-  WEEK_OK=wk.length>0;var src=WEEK_OK?wk:NIGHTS;          // file not updated for this week yet → still list all, admin warns
+  D0.teams=NIGHT.teams;D0.night=NIGHT.label||NIGHT.date;
+  var wk=NIGHTS.filter(function(n){return n.date&&weekKey(Date.parse(n.date+"T12:00:00+02:00"))===CUR_WEEK});
+  WEEK_OK=wk.length>0;var src=WEEK_OK?wk:NIGHTS;
   var allT=[];src.forEach(function(n){allT=allT.concat(n.teams)});
 }else var allT=D0.teams||[];
+
+function fillKakvo(){
+  var card=$("#kakvo-card"); if(!card) return;
+  var lines=[];
+  if(NIGHT&&NIGHT.type==="themed"){
+    lines.push("<p>🎭 Тази вечер е тематична: "+(NIGHT.theme?escH(NIGHT.theme):"темата на вечерта")+".</p>");
+  }else if(NIGHT&&NIGHT.type==="gk"){
+    lines.push("<p>📚 Тази вечер играем куиз с общи знания.</p>");
+  }else{
+    lines.push("<p>📚 В петък играем тематичен куиз, в събота – с общи знания.</p>");
+  }
+  lines.push("<p>🍹 Идваш, сядаш с отбора си и си избираш нещо за пиене и хапване.</p>");
+  lines.push("<p>📝 Всеки отбор получава листите за отговори и си избира име.</p>");
+  if(NIGHT&&NIGHT.type==="themed"){
+    lines.push("<p>❓ Играем 6 рунда по темата.</p>");
+  }else{
+    lines.push("<p>❓ Играем 6 рунда с различни въпроси – картинки, музика, видео, логика и истории.</p>");
+  }
+  lines.push("<p>⏱️ Всеки въпрос е на екрана с таймер.</p>");
+  lines.push("<p>✅ След всеки рунд събираме листите и ги точкуваме.</p>");
+  lines.push("<p>🔄 След всеки 2 рунда има почивка.</p>");
+  lines.push("<p>🏆 В края обявяваме класирането място по място, от последното до първото, а точките влизат и в сезонното класиране.</p>");
+  card.innerHTML=lines.join("");
+}
+fillKakvo();
+
+function syncVoteView(){
+  var on=voteOpen(), btn=$("#btn-vote"), home=$("#home"), form=$("#vform"), closed=$("#vclosed"), vote=$("#vote");
+  if(btn) btn.hidden=false;
+  if(home){home.classList.add("six");home.classList.remove("five")}
+  if(vote) vote.classList.toggle("closed",!on);
+  if(form) form.hidden=!on;
+  if(closed) closed.hidden=on;
+  if(!on&&cur==="vote") showClosedTally();
+}
+syncVoteView();
+setInterval(syncVoteView,30000);
+
 /* ---------- vote form ---------- */
-// Team dropdown = all teams reserved for this voting week's nights. size = max votes per team per week.
 var TEAM_BY={},TEAMS=[];
 allT.forEach(function(t){if(!t||!norm(t.name))return;var k=key(t.name),s=Math.max(1,parseInt(t.size,10)||0);
   if(TEAM_BY[k])TEAM_BY[k].size=Math.max(TEAM_BY[k].size,s);else{TEAM_BY[k]={name:norm(t.name),size:s};TEAMS.push(TEAM_BY[k])}});
@@ -90,27 +150,21 @@ TEAMS.sort(function(a,b){return a.name.localeCompare(b.name,"bg")});
 window.__teams=TEAMS;
 var form=$("#vform"),fn=$("#fname"),ft=$("#fteam"),ftv=$("#fteamv"),sub=$("#vsubmit"),pick=$("#tpick"),tlist=$("#tlist"),nsug=$("#nsug"),theme="",teamSel="";
 var touched={name:false,team:false};
-var escH=function(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
-function teamErr(){if(!TEAMS.length)return "Няма отбори в списъка за тази седмица – попитай водещия.";return teamSel&&TEAM_BY[key(teamSel)]?"":"Моля, първо избери отбора си."}
+function teamErr(){if(!TEAMS.length)return "Няма отбори в списъка за този уикенд – попитай водещия.";return teamSel&&TEAM_BY[key(teamSel)]?"":"Моля, първо избери отбора си."}
 function upd(){var en=check(fn.value,"name"),et=teamErr();
   show(fn,$("#ename"),touched.name?en:"");show(ft,$("#eteam"),touched.team||!TEAMS.length?et:"");
-  sub.disabled=!!(en||et||!theme);if(!sub.disabled)$("#eform").textContent="";return !sub.disabled}
+  sub.disabled=!!(en||et||!theme||!voteOpen());if(!sub.disabled)$("#eform").textContent="";return !sub.disabled}
 function show(inp,el,m){el.textContent=m;inp.classList.toggle("bad",!!m)}
 function setTeam(n){teamSel=n||"";ftv.textContent=teamSel||"Избери отбора си";ftv.classList.toggle("ph",!teamSel);
   $$(".topt",tlist).forEach(function(o){o.classList.toggle("sel",o.dataset.team===teamSel);o.setAttribute("aria-selected",o.dataset.team===teamSel)})}
-tlist.innerHTML=TEAMS.length?TEAMS.map(function(t){return '<button type="button" class="topt" role="option" data-team="'+escH(t.name)+'">'+escH(t.name)+'</button>'}).join(""):'<div class="tempty">Няма отбори в списъка за тази седмица.</div>';
+tlist.innerHTML=TEAMS.length?TEAMS.map(function(t){return '<button type="button" class="topt" role="option" data-team="'+escH(t.name)+'">'+escH(t.name)+'</button>'}).join(""):'<div class="tempty">Няма отбори в списъка за този уикенд.</div>';
 if(!TEAMS.length)ft.disabled=true;
-function openPick(){if(!TEAMS.length)return;hideSug();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();pick.hidden=false;ft.classList.add("open");
-  var s=$(".topt.sel",tlist);tlist.scrollTop=s?Math.max(0,s.offsetTop-tlist.offsetTop-200):0}
+function openPick(){if(!TEAMS.length)return;hideSug();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();pick.hidden=false;ft.classList.add("open");}
 function closePick(){pick.hidden=true;ft.classList.remove("open")}
-ft.addEventListener("click",openPick);
-$("#tclose").addEventListener("click",function(){closePick();touched.team=true;upd()});
-pick.addEventListener("click",function(e){var o=e.target.closest(".topt");if(o){var ch=o.dataset.team!==teamSel;setTeam(o.dataset.team);closePick();touched.team=true;$("#eform").textContent="";upd();
-    if(!fn.value){setTimeout(function(){fn.focus()},150)}else if(ch)renderSug();return}   // team first → straight on to the name
-  if(e.target===pick){closePick();touched.team=true;upd()}});
+ft.addEventListener("click",function(){if(pick.hidden)openPick();else closePick()});
+tlist.addEventListener("click",function(e){var o=e.target.closest(".topt");if(!o)return;touched.team=true;setTeam(o.dataset.team);closePick();upd()});
+$("#tclose").addEventListener("click",closePick);
 
-/* ---------- name suggestions (custom list, no <datalist>) ---------- */
-// server: GET ?names=1 → names ever entered per team (all weeks) + t = voted this week; cached for offline use.
 var NKEY="sevina.teamNames.v1",LKEY="sevina.localNames.v1",MAXSUG=5,namesBusy=false;
 function fetchNames(force){if(!URL_||namesBusy||!navigator.onLine)return;var c=load(NKEY,null);if(!force&&c&&Date.now()-c.at<60000)return;namesBusy=true;
   tfetch(URL_+(URL_.indexOf("?")<0?"?":"&")+"names=1&_="+Date.now(),{method:"GET"},C.TALLY_TIMEOUT_MS||12000).then(function(r){return r.json()})
@@ -119,24 +173,16 @@ function rememberName(name,team){var L=load(LKEY,{}),tk=key(team);L[tk]=L[tk]||{
 function votedThisWeek(k){var v=load(VKEY,{});return !!v[k]&&weekKey(v[k])===weekKey()}
 function teamNames(team){var tk=key(team),c=load(NKEY,null),L=load(LKEY,{})[tk]||{},m={},out=[],wkNow=weekKey(),srvWeek=c&&c.week===wkNow;
   ((c&&c.names&&c.names[tk])||[]).forEach(function(x){var nk=key(x.n);if(!nk||m[nk])return;m[nk]={n:x.n,t:!!(x.t&&srvWeek)};out.push(m[nk])});
-  Object.keys(L).forEach(function(nk){if(!m[nk]){m[nk]={n:L[nk].n,t:false};out.push(m[nk])}});
+  Object.keys(L).forEach(function(nk){if(m[nk])return;m[nk]={n:L[nk].n,t:false};out.push(m[nk])});
   out.forEach(function(x){if(votedThisWeek(key(x.n)+"|"+tk))x.t=true});return out}
 function suggest(team,typed){var q=key(typed),lo=norm(typed).toLocaleLowerCase("bg");if(!team||!q)return [];
-  var res=[];teamNames(team).forEach(function(x){var nk=key(x.n),words=norm(x.n).toLocaleLowerCase("bg").split(" "),tier;
-    if(nk.indexOf(q)===0||words.some(function(w){return key(w).indexOf(q)===0}))tier=0;else if(nk.indexOf(q)>=0)tier=1;else return;
-    if(nk===q&&!x.t)return;   // already typed exactly
-    res.push({n:x.n,t:x.t,tier:tier})});
-  res.sort(function(a,b){return (a.t-b.t)||(a.tier-b.tier)||a.n.localeCompare(b.n,"bg")});return res.slice(0,MAXSUG)}
-window.__suggest=suggest;
+  return teamNames(team).filter(function(x){return key(x.n).indexOf(q)===0||x.n.toLocaleLowerCase("bg").indexOf(lo)>=0}).slice(0,MAXSUG)}
 function hl(n,typed){var lo=n.toLocaleLowerCase("bg"),t=norm(typed).toLocaleLowerCase("bg"),i=t?lo.indexOf(t):-1;
-  return i<0?escH(n):escH(n.slice(0,i))+"<b>"+escH(n.slice(i,i+t.length))+"</b>"+escH(n.slice(i+t.length))}
+  if(i<0)return escH(n);return escH(n.slice(0,i))+"<b>"+escH(n.slice(i,i+t.length))+"</b>"+escH(n.slice(i+t.length))}
 function renderSug(){var s=suggest(teamSel,fn.value);if(!s.length||document.activeElement!==fn){hideSug();return}
-  nsug.innerHTML=s.map(function(x){return '<button type="button" class="ns'+(x.t?' done':'')+'" role="option" data-n="'+escH(x.n)+'"'+(x.t?' aria-disabled="true"':'')+'><span>'+hl(x.n,fn.value)+'</span>'+(x.t?'<small>✅ вече гласува</small>':'')+'</button>'}).join("");nsug.hidden=false}
+  nsug.hidden=false;nsug.innerHTML=(s.some(function(x){return x.t})?'<div class="nsh">Вече гласували този уикенд</div>':"")+s.map(function(x){return '<button type="button" class="ns'+(x.t?" done":"")+'" role="option" data-name="'+escH(x.n)+'">'+hl(x.n,fn.value)+(x.t?"<small>гласувал</small>":"")+"</button>"}).join("")}
 function hideSug(){nsug.hidden=true;nsug.innerHTML=""}
-["mousedown","pointerdown"].forEach(function(t){nsug.addEventListener(t,function(e){e.preventDefault()})});   // keep focus in the field while tapping
-nsug.addEventListener("click",function(e){var o=e.target.closest(".ns");if(!o)return;
-  if(o.classList.contains("done")){toast("„"+o.dataset.n+"“ вече гласува тази седмица 🙂");return}
-  fn.value=o.dataset.n;touched.name=true;hideSug();fn.blur();upd()});
+nsug.addEventListener("mousedown",function(e){e.preventDefault();var b=e.target.closest(".ns");if(!b)return;fn.value=b.getAttribute("data-name")||"";hideSug();touched.name=true;upd()});
 fn.addEventListener("input",function(){if(fn.value.length>2)touched.name=true;upd();renderSug()});
 fn.addEventListener("focus",function(){fetchNames();renderSug()});
 fn.addEventListener("blur",function(){setTimeout(function(){if(document.activeElement!==fn)hideSug()},200);if(fn.value)touched.name=true;upd()});
@@ -147,105 +193,407 @@ fn.addEventListener("focus",function(){vs.classList.add("kb");var y=function(){v
 document.addEventListener("focusout",function(){setTimeout(function(){if(!document.activeElement||document.activeElement.tagName!=="INPUT"){vs.classList.remove("kb");fit()}},50)});
 function resetVote(){form.reset();theme="";closePick();hideSug();setTeam("");touched={name:false,team:false};$$(".theme").forEach(function(x){x.classList.remove("sel")});$$(".err",form).forEach(function(e){e.textContent=""});$$(".field").forEach(function(f){f.classList.remove("bad")});sub.disabled=true;vs.classList.remove("kb");busy=false;upd()}
 upd();
-// local per-week records: drop entries from earlier voting weeks
 (function(){var v=load(VKEY,{}),w=weekKey(),ch=false;for(var k in v)if(typeof v[k]!=="number"||weekKey(v[k])!==w){delete v[k];ch=true}if(ch)save(VKEY,v)})();
-// votes this kiosk recorded for a team this week (sent or queued) – offline lower bound for the team cap
 function localTeamCount(tk){var v=load(VKEY,{}),w=weekKey(),n=0;for(var k in v)if(k.slice(k.indexOf("|")+1)===tk&&weekKey(v[k])===w)n++;return n}
 var busy=false;
-form.addEventListener("submit",function(e){e.preventDefault();touched={name:true,team:true};if(!upd()){if(!theme)$("#eform").textContent="Избери тема, за която гласуваш.";return}
+form.addEventListener("submit",function(e){e.preventDefault();touched={name:true,team:true};if(!voteOpen()){$("#eform").textContent="Гласуването е отворено в петък и събота от 16:00 до 02:00.";busy=false;return}
+  if(!upd()){if(!theme)$("#eform").textContent="Избери тема, за която гласуваш.";return}
   if(busy)return;busy=true;hideSug();var T=TEAM_BY[key(teamSel)],name=norm(fn.value),team=T.name,size=T.size,k=key(name)+"|"+key(team);
   if(votedThisWeek(k)){dup(name,team);busy=false;return}
   if(localTeamCount(key(team))>=size){full(team,size);busy=false;return}
-  remoteCheck(k,team,size).then(function(r){if(r.dup){dup(name,team);busy=false;return}
+  remoteCheck(k,team,size).then(function(r){if(r.closed){$("#eform").textContent="Гласуването е отворено в петък и събота от 16:00 до 02:00.";busy=false;return}
+    if(r.dup){dup(name,team);busy=false;return}
     if(r.full){full(team,r.cap||size);busy=false;return}
-    var voted=load(VKEY,{});voted[k]=Date.now();save(VKEY,voted);rememberName(name,team);
-    var v={id:KIOSK+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),ts:new Date().toISOString(),kiosk:KIOSK,name:name,team:team,size:size,theme:theme,key:k,ua:navigator.userAgent};
+    var voted=load(VKEY,{});voted[k]=nowMs();save(VKEY,voted);rememberName(name,team);
+    var v={id:KIOSK+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),ts:new Date(nowMs()).toISOString(),kiosk:KIOSK,name:name,team:team,size:size,theme:theme,key:k,ua:navigator.userAgent};
     var q=load(QKEY,[]);q.push(v);save(QKEY,q);flush();busy=false;go("thanks");$("#tbars").innerHTML="";$("#tnote").textContent="…";setTimeout(showTally,900);});
 });
 document.addEventListener("click",function(e){var g=e.target.closest('[data-go="vote"]');if(g)fetchNames()});setTimeout(function(){fetchNames(true)},2500);
 var TKEY="sevina.tally.v1";
-function drawTally(t,note){var names=$$(".theme").map(function(b){return b.dataset.theme}),w=weekKey();
+function tallyEls(bars,noteEl){return {bars:bars||$("#tbars"),note:noteEl||$("#tnote")}}
+function drawTally(t,note,bars,noteEl){var el=tallyEls(bars,noteEl);
+  var names=$$(".theme").map(function(b){return b.dataset.theme}),w=weekKey();
   var q=load(QKEY,[]).filter(function(v){return weekKey(Date.parse(v.ts))===w});var c={};names.forEach(function(n){c[n]=(t&&t[n])||0});q.forEach(function(v){if(c.hasOwnProperty(v.theme))c[v.theme]++});
   var tot=names.reduce(function(a,n){return a+c[n]},0),mx=Math.max.apply(null,names.map(function(n){return c[n]}));
-  $("#tbars").innerHTML=names.map(function(n){var pc=tot?Math.round(c[n]*100/tot):0;return '<div class="tb'+(c[n]===mx&&mx>0?' lead':'')+'" data-theme="'+n.replace(/"/g,"&quot;")+'"><div class="bl"><span>'+n+'</span><b>'+c[n]+' · '+pc+'%</b></div><div class="bt"><i style="width:'+pc+'%"></i></div></div>'}).join("");
-  $("#tnote").textContent=note||"";}
-function showTally(){var cache=load(TKEY,null);if(cache&&cache.week&&cache.week!==weekKey())cache={t:{},week:weekKey()};   // last week's results never shown
-  $("#tbars").innerHTML="";$("#tnote").textContent="Зареждане на резултатите…";
-  var off=function(){if(cache)drawTally(cache.t,"Последни известни резултати – ще се обновят след връзка с интернет.");else{$("#tbars").innerHTML="";$("#tnote").textContent="Резултатите ще се покажат след връзка с интернет."}};
+  if(el.bars) el.bars.innerHTML=names.map(function(n){var pc=tot?Math.round(c[n]*100/tot):0;return '<div class="tb'+(c[n]===mx&&mx>0?' lead':'')+'" data-theme="'+n.replace(/"/g,"&quot;")+'"><div class="bl"><span>'+n+'</span><b>'+c[n]+' · '+pc+'%</b></div><div class="bt"><i style="width:'+pc+'%"></i></div></div>'}).join("");
+  if(el.note) el.note.textContent=note||"";}
+function showTally(bars,noteEl){var el=tallyEls(bars,noteEl);var cache=load(TKEY,null);if(cache&&cache.week&&cache.week!==weekKey())cache={t:{},week:weekKey()};
+  if(el.bars) el.bars.innerHTML="";if(el.note) el.note.textContent="Зареждане на резултатите…";
+  var off=function(){if(cache)drawTally(cache.t,"Последни известни резултати – ще се обновят след връзка с интернет.",el.bars,el.note);else{if(el.bars)el.bars.innerHTML="";if(el.note)el.note.textContent="Резултатите ще се покажат след връзка с интернет."}};
   if(!URL_){off();return}
   var got=false,attempts=0,ms=C.TALLY_TIMEOUT_MS||12000;
-  function apply(j){if(!j||!j.ok||!j.tallies)return false;got=true;save(TKEY,{t:j.tallies,at:Date.now(),week:j.week||weekKey()});drawTally(j.tallies,"");return true}
+  function apply(j){if(!j||!j.ok||!j.tallies)return false;got=true;save(TKEY,{t:j.tallies,at:Date.now(),week:j.week||weekKey()});drawTally(j.tallies,"",el.bars,el.note);return true}
   function failOrRetry(){if(got)return;if(attempts<2){doFetch();return}off()}
   function doFetch(){attempts++;var url=URL_+(URL_.indexOf("?")<0?"?":"&")+"tally=1&_="+Date.now();
     var settled=false,to=setTimeout(function(){if(settled||got)return;settled=true;failOrRetry()},ms);
     fetch(url).then(function(r){return r.json()}).then(function(j){clearTimeout(to);
-      if(apply(j)){settled=true;return} // late OK after off() still draws
+      if(apply(j)){settled=true;return}
       if(!settled){settled=true;failOrRetry()}
     }).catch(function(){clearTimeout(to);if(got||settled)return;settled=true;failOrRetry()})}
   doFetch();}
+function showClosedTally(){showTally($("#vtbars"),$("#vtnote"))}
 window.__showTally=showTally;
-function dup(name,team){$("#eform").textContent="Вече има глас от „"+name+"“ от отбор „"+team+"“ тази седмица. Всеки гласува само веднъж седмично – благодарим! 🙂";toast("Този човек вече е гласувал 🙂")}
-function full(team,n){$("#eform").textContent=n===1?"Отбор „"+team+"“ вече е подал своя 1 глас тази седмица 🙂":"Отбор „"+team+"“ вече е подал всички "+n+" гласа тази седмица 🙂";toast("Отборът вече е гласувал изцяло 🙂")}
+function dup(name,team){$("#eform").textContent="Вече има глас от „"+name+"“ от отбор „"+team+"“ този уикенд. Всеки гласува само веднъж през уикенда – благодарим! 🙂";toast("Този човек вече е гласувал 🙂")}
+function full(team,n){$("#eform").textContent=n===1?"Отбор „"+team+"“ вече е подал своя 1 глас този уикенд 🙂":"Отбор „"+team+"“ вече е подал всички "+n+" гласа този уикенд 🙂";toast("Отборът вече е гласувал изцяло 🙂")}
 var tT;function toast(m){var t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tT);tT=setTimeout(function(){t.classList.remove("show")},3500)}
 
+/* ---------- season standings ---------- */
+var SKEY_ST="sevina.standings.v1";
+var F1_POINTS=[25,18,15,12,10,8,6,4,3,2]; // 11th+ = 1; change this array to adjust the table
+function f1Pts(place){place=+place||0;if(place<1)return 0;return place<=F1_POINTS.length?F1_POINTS[place-1]:1}
+function f1Blurb(){return "Точки по място: "+F1_POINTS.join(", ")+", от 11-о → 1."}
+var STAND=null;          // "friday" | "saturday"
+var STAND_VIEW="home";   // home | list | team | night
+var STAND_TEAM=null;
+var STAND_NIGHT=null;
+var POD_COL={1:"#FFD54F",2:"#d9dde6",3:"#e09a5a"};
+var BG_MONTHS=["януари","февруари","март","април","май","юни","юли","август","септември","октомври","ноември","декември"];
+function ruleText(kind,data){
+  if(kind==="friday"){
+    var n=(data&&data.bestOf)||20;
+    return "Броят се най-добрите "+n+" петъка · избери отбор за повече информация";
+  }
+  return "Избери отбор за повече информация";
+}
+function fmtPts(n){return (Math.round((+n||0)*10)/10)+" т."}
+function fmtScore(v){if(v==null||v==="")return "—";var n=+v;return isNaN(n)?"—":String(Math.round(n*10)/10)}
+function fmtPen(v){var n=+v||0;if(!n)return "—";return (n<0?"−":"+")+Math.abs(n)}
+function fmtSofiaDate(iso){
+  var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||"");
+  if(!m) return iso||"";
+  return parseInt(m[3],10)+" "+BG_MONTHS[parseInt(m[2],10)-1];
+}
+function nightTheme(n){
+  if(!n) return "";
+  if(n.theme) return String(n.theme).trim();
+  var t=String(n.label||"");
+  t=t.replace(/\(?\s*MEGA\s*1st\s*\)?/ig,"");
+  t=t.replace(/^\s*\d{1,2}(\.\d{1,2}(\.\d{2,4})?|\s+[а-яА-Я]+\.?)?\s*/,"");
+  t=t.replace(/^[\s\-–—·:|,]+/,"").replace(/[\s\-–—·:|,]+$/,"");
+  return t.trim();
+}
+function fmtNightTitle(n){
+  if(!n) return "Вечер";
+  var d=n.date?fmtSofiaDate(n.date):"";
+  var themed=(n.type==="themed")||(STAND==="friday");
+  if(themed){var th=nightTheme(n); if(d&&th) return d+" · "+th; if(th) return th;}
+  if(d) return d;
+  return String(n.label||"").replace(/\(?\s*MEGA\s*1st\s*\)?/ig,"").trim()||"Вечер";
+}
+function nightKey(n){return (n&&(n.date||n.label))||""}
+function playedLabel(kind,n){
+  n=+n||0;
+  if(kind==="friday") return n===1?"1 петък":n+" петъка";
+  return n===1?"1 събота":n+" съботи";
+}
+function kindTitle(kind){return kind==="friday"?"Петък – тематични":"Събота – обща култура"}
+function fillStandBlurbs(){
+  var cache=load(SKEY_ST,null), n=(cache&&cache.friday&&cache.friday.bestOf)||20;
+  var f=$("#sblurb-fri"), s=$("#sblurb-sat");
+  /* blurbs are static intro text now (16.11) */
 
-/* ---------- seating ---------- */
-var SEAT_COL=["#e85d75","#4fc3f7","#81c784","#ffb74d","#ba68c8","#4db6ac","#f06292","#aed581","#7986cb","#ffd54f","#a1887f","#90a4ae","#4dd0e1","#dce775"];
-function isBlocked(sec,r,s){var b=(sec.blocked||{})[r];return !!b&&b.indexOf(s)>=0}
-// bands = rows (1,2),(3,4)… of each section in order; each band = free segments of seats usable in BOTH rows.
-function allocateSeats(teams,sections,band){band=band||2;var items=teams.map(function(t,i){return {name:t.name,size:+t.size,i:t._i!=null?t._i:i}}).sort(function(a,b){return b.size-a.size||a.i-b.i});
-  var bands=[],maxW=0,out={};
-  sections.forEach(function(sec){for(var r=1;r+band-1<=sec.rows.length;r+=band){var n=Infinity,k;for(k=0;k<band;k++)n=Math.min(n,sec.rows[r-1+k]);
-    var segs=[],cur=null;for(var s=1;s<=n;s++){var bl=false;for(k=0;k<band;k++)if(isBlocked(sec,r+k,s))bl=true;
-      if(bl){cur=null;continue}if(!cur){cur={a:s,b:s,c:s};segs.push(cur)}else cur.b=s}
-    segs.forEach(function(g){maxW=Math.max(maxW,g.b-g.a+1)});bands.push({sec:sec,r0:r,segs:segs})}});
-  items.forEach(function(t){var w=Math.ceil(t.size/band),hit=null;if(w>maxW)throw new Error("Отбор „"+t.name+"“ е твърде голям за един ред");
-    for(var k=0;k<bands.length&&!hit;k++)for(var j=0;j<bands[k].segs.length;j++){var g=bands[k].segs[j];if(g.c+w-1<=g.b){hit={B:bands[k],s0:g.c};g.c+=w+1;break}}
-    if(!hit)throw new Error("Не стигат местата");
-    var cells=[];for(var r=0;r<band;r++)for(var c=0;c<w;c++)cells.push([hit.B.r0+r,hit.s0+c]);cells=cells.slice(0,t.size);
-    out[t.name]={sec:hit.B.sec.id,secName:hit.B.sec.name,r0:hit.B.r0,r1:hit.B.r0+band-1,s0:hit.s0,s1:hit.s0+w-1,cells:cells,i:t.i}});return out}
-window.__allocateSeats=allocateSeats;
-// fixed seats from seating.js: team.seats=[[row,from,to],…] (or [{row,seat}…]) → exact cells; other teams auto-allocated around them
-function fixedSeats(teams,sections){var sec=sections[0],out={},taken={},rest=[];
-  teams.forEach(function(t,i){if(!t||!norm(t.name))return;if(!t.seats||!t.seats.length){rest.push({name:t.name,size:t.size,_i:i});return}
-    var cells=[];t.seats.forEach(function(x){if(Array.isArray(x)){var a=Math.min(x[1],x[2]==null?x[1]:x[2]),b=Math.max(x[1],x[2]==null?x[1]:x[2]);for(var s=a;s<=b;s++)cells.push([+x[0],s])}else cells.push([+x.row,+x.seat])});
-    cells=cells.filter(function(c){return c[0]>=1&&c[0]<=sec.rows.length&&c[1]>=1&&c[1]<=sec.rows[c[0]-1]});if(!cells.length){rest.push({name:t.name,size:t.size,_i:i});return}
-    var rs=cells.map(function(c){return c[0]}),ss=cells.map(function(c){return c[1]});
-    cells.forEach(function(c){(taken[c[0]]=taken[c[0]]||[]).push(c[1])});
-    out[norm(t.name)]={sec:sec.id,secName:sec.name,r0:Math.min.apply(null,rs),r1:Math.max.apply(null,rs),s0:Math.min.apply(null,ss),s1:Math.max.apply(null,ss),cells:cells,i:i,fixed:true}});
-  if(rest.length){var bl={},k;for(k in sec.blocked||{})bl[k]=sec.blocked[k].slice();for(k in taken)bl[k]=(bl[k]||[]).concat(taken[k]);
-    var A2=allocateSeats(rest,[{id:sec.id,name:sec.name,rows:sec.rows,blocked:bl}].concat(sections.slice(1)));for(k in A2)out[k]=A2[k]}
-  return out}
-window.__fixedSeats=fixedSeats;
-(function(){var D=window.SEATING||{teams:[]},SEC=D.sections||[],map=$("#smap"),leg=$("#sleg"),hi=null,A;
-  if(D.example===false)$("#sex").remove();
-  try{A=(D.teams||[]).some(function(t){return t&&t.seats&&t.seats.length})?fixedSeats(D.teams||[],SEC):allocateSeats(D.teams||[],SEC)}catch(err){map.outerHTML='<div class="serr">⚠️ '+err.message+'</div>';return}
-  var esc=function(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
-  var M=0;SEC.forEach(function(s){s.rows.forEach(function(n){M=Math.max(M,n)})});
-  var occ={};Object.keys(A).forEach(function(n){A[n].cells.forEach(function(c){occ[A[n].sec+","+c[0]+","+c[1]]=n})});
-  // half-seat columns, rows centred like the print; seat 1 on the right
-  function col(n,s){return 2+(M-n)+2*(n-s)}
-  var h="",g=1,gr={};
-  SEC.slice().reverse().forEach(function(sec,si){
-    if(si)h+='<div class="sep" style="grid-row:'+(g++)+';grid-column:1/-1"></div>';
-    for(var r=1;r<=sec.rows.length;r++){var n=sec.rows[r-1];gr[sec.id+","+r]=g;
-      h+='<div class="rn" style="grid-row:'+g+';grid-column:1">'+r+'</div><div class="rn" style="grid-row:'+g+';grid-column:'+(2*M+2)+'">'+r+'</div>';
-      for(var s=1;s<=n;s++){var t=occ[sec.id+","+r+","+s],bl=isBlocked(sec,r,s);
-        h+='<div class="seat'+(bl?' x':'')+(t?' t':'')+'"'+(t?' data-team="'+esc(t)+'" style="background:'+SEAT_COL[A[t].i%SEAT_COL.length]+';':' style="')+'grid-row:'+g+';grid-column:'+col(n,s)+'/span 2">'+s+'</div>'}
-      g++}});
-  Object.keys(A).forEach(function(n){var a=A[n],sec=SEC.filter(function(x){return x.id===a.sec})[0];
-    if(a.fixed){var lo={},hi2={},c0=-1e9,c1=1e9;a.cells.forEach(function(c){var x=col(sec.rows[c[0]-1],c[1]);lo[c[0]]=Math.min(lo[c[0]]==null?1e9:lo[c[0]],x);hi2[c[0]]=Math.max(hi2[c[0]]==null?-1e9:hi2[c[0]],x+2)});
-      Object.keys(lo).forEach(function(r){c0=Math.max(c0,lo[r]);c1=Math.min(c1,hi2[r])});   // label over the seats common to all rows of the block
-      h+='<button class="blk" data-team="'+esc(n)+'" style="grid-row:'+gr[a.sec+","+a.r0]+'/'+(gr[a.sec+","+a.r1]+1)+';grid-column:'+c0+'/'+c1+';background:'+SEAT_COL[a.i%SEAT_COL.length]+'">'+esc(n)+'</button>';return}
-    var c0=Math.min(col(sec.rows[a.r0-1],a.s1),col(sec.rows[a.r1-1],a.s1)),c1=Math.max(col(sec.rows[a.r0-1],a.s0),col(sec.rows[a.r1-1],a.s0))+2;
-    h+='<button class="blk" data-team="'+esc(n)+'" style="grid-row:'+gr[a.sec+","+a.r0]+'/'+(gr[a.sec+","+a.r1]+1)+';grid-column:'+c0+'/'+c1+';background:'+SEAT_COL[a.i%SEAT_COL.length]+'">'+esc(n)+'</button>'});
-  map.style.gridTemplateColumns="44px repeat("+(2*M)+",1fr) 44px";map.innerHTML=h;
-  leg.innerHTML=Object.keys(A).sort(function(a,b){return a.localeCompare(b,"bg")}).map(function(n){var a=A[n];return '<button class="li" data-team="'+esc(n)+'"><i style="background:'+SEAT_COL[a.i%SEAT_COL.length]+'"></i><div>'+esc(n)+'<small>'+seatTxt(a)+'</small></div></button>'}).join("");
-  function seatTxt(a){if(!a.fixed)return 'Ред '+a.r0+'–'+a.r1+', места '+a.s0+'–'+a.s1;var by={};a.cells.forEach(function(c){(by[c[0]]=by[c[0]]||[]).push(c[1])});
-    return Object.keys(by).map(Number).sort(function(x,y){return x-y}).map(function(r){var s=by[r].sort(function(x,y){return x-y});return 'Ред '+r+': '+(s.length>1&&s[s.length-1]-s[0]===s.length-1?s[0]+'–'+s[s.length-1]:s.join(', '))}).join(' · ')}
-  function set(n){hi=n;map.classList.toggle("dim",!!n);$$("#seating [data-team]").forEach(function(x){x.classList.toggle("hi",x.dataset.team===n)})}
-  document.getElementById("seating").addEventListener("click",function(e){var t=e.target.closest("[data-team]");if(!t)return;set(hi===t.dataset.team?null:t.dataset.team)});
-  window.__seating={A:A,set:set,reset:function(){set(null)}};
+}
+function standPanel(which){
+  ["home","list","team","night"].forEach(function(k){
+    var el=$("#stand-"+k);
+    if(el) el.hidden=(k!==which);
+  });
+  var box=$("#stand-"+which);
+  var sc=box&&$(".vscroll",box);
+  if(sc) sc.scrollTop=0;
+}
+function standCache(){return load(SKEY_ST,null)}
+function standData(kind){var c=standCache();return c&&c[kind]}
+function findTeam(kind,name){
+  var rows=(standData(kind)&&standData(kind).rows)||[];
+  var k=key(name);
+  for(var i=0;i<rows.length;i++) if(key(rows[i].team)===k) return rows[i];
+  return null;
+}
+function findNight(kind,nk){
+  var data=standData(kind), nights=(data&&data.nights)||[];
+  var i,n;
+  for(i=0;i<nights.length;i++) if(nightKey(nights[i])===nk) return nights[i];
+  var rows=(data&&data.rows)||[], results=[], label="", date="";
+  rows.forEach(function(r){
+    (r.nights||[]).forEach(function(x){
+      if(nightKey(x)!==nk) return;
+      label=x.label||label; date=x.date||date;
+      if(x.absent) return;
+      results.push({team:r.team, raw:x.raw, penalty:x.penalty, final:x.final, place:x.nightPlace||0, points:x.score});
+    });
+  });
+  if(!results.length&&!label&&!date) return null;
+  results.sort(function(a,b){return (a.place||99)-(b.place||99)||a.team.localeCompare(b.team,"bg")});
+  return {date:date, label:label, type:kind==="friday"?"themed":"gk", results:results};
+}
+
+function showStandHome(){
+  STAND=null; STAND_VIEW="home"; STAND_TEAM=null; STAND_NIGHT=null;
+  standPanel("home");
+  var title=$("#stand-title"), b=$("#sback");
+  if(title) title.textContent="Сезонно класиране";
+  if(b){b.setAttribute("data-go","home");b.textContent="← Начало"}
+  fillStandBlurbs();
+}
+function showStandList(kind){
+  STAND=kind; STAND_VIEW="list"; STAND_TEAM=null; STAND_NIGHT=null;
+  standPanel("list");
+  var title=$("#stand-title"), b=$("#sback");
+  if(title) title.textContent=kindTitle(kind);
+  if(b){b.removeAttribute("data-go");b.textContent="← Назад"}
+  drawStandList(kind);
+}
+function drawStandList(kind){
+  var data=standData(kind), list=$("#slist"), rule=$("#srule"), note=$("#snote");
+  if(rule){rule.textContent=ruleText(kind,data);rule.hidden=!rule.textContent;}
+  if(!list) return;
+  if(!data||!data.rows||!data.rows.length){
+    list.innerHTML='<div class="sempty">Още няма класиране за този сезон. Точките влизат след първата вечер.</div>';
+    if(note) note.textContent="";
+    return;
+  }
+  list.innerHTML=data.rows.map(function(r){
+    var place=+r.place||0;
+    var played=r.played!=null?r.played:(r.nights||[]).filter(function(n){return !n.absent}).length;
+    var top=place>=1&&place<=3;
+    var col=top?(' style="--c:'+POD_COL[place]+'"'):"";
+    return '<button type="button" class="srow'+(top?" pod":"")+'"'+col+' data-stand-team="'+escH(r.team)+'"><div class="sleft"><span class="srank">'+place+'</span><div class="sname-blk"><b>'+escH(r.team)+'</b><span class="splayed">'+escH(playedLabel(kind,played))+'</span></div></div><span class="stotal">'+fmtPts(r.total)+'</span></button>';
+  }).join("");
+  if(note) note.textContent=standCache()&&standCache().offline?"Последни известни резултати – ще се обновят след връзка с интернет.":"";
+}
+function showStandTeam(team){
+  STAND_VIEW="team"; STAND_TEAM=team; STAND_NIGHT=null;
+  standPanel("team");
+  var title=$("#stand-title"), b=$("#sback");
+  if(title) title.textContent=team;
+  if(b){b.removeAttribute("data-go");b.textContent="← Назад"}
+  drawStandTeam();
+}
+function drawStandTeam(){
+  var kind=STAND, row=findTeam(kind,STAND_TEAM), list=$("#stteams"), rule=$("#trule");
+  if(rule){
+    if(!row) rule.textContent="";
+    else rule.textContent="Избери вечер за пълен резултат";
+  }
+  if(!list) return;
+  var nights=row&&row.nights||[];
+  if(!nights.length){
+    list.innerHTML='<div class="sempty">Няма записани вечери за този отбор.</div>';
+    return;
+  }
+  list.innerHTML=nights.map(function(n){
+    var dropped=!!n.dropped, abs=!!n.absent;
+    var cls="srow snight"+(dropped||abs?" dim":"");
+    var body;
+    if(abs) body="Отсъствие";
+    else {
+      var bits=[];
+      if(n.final!=null&&n.final!=="") bits.push("Финал "+fmtScore(n.final));
+      if(n.nightPlace) bits.push(n.nightPlace+" място");
+      if(dropped) bits.push("не влиза");
+      body=bits.join(" · ");
+    }
+    return '<button type="button" class="'+cls+'" data-stand-night="'+escH(nightKey(n))+'"><div class="sname-blk"><b>'+escH(fmtNightTitle(n))+'</b><span class="splayed">'+escH(body)+'</span></div><span class="stotal">'+(abs?"0 т.":fmtPts(n.score))+'</span></button>';
+  }).join("");
+}
+function showStandNight(nk){
+  STAND_VIEW="night"; STAND_NIGHT=nk;
+  standPanel("night");
+  var n=findNight(STAND,nk);
+  var title=$("#stand-title"), b=$("#sback");
+  if(title) title.textContent=n?fmtNightTitle(n):"Протокол";
+  if(b){b.removeAttribute("data-go");b.textContent="← Назад"}
+  drawStandNight();
+}
+function drawStandNight(){
+  var n=findNight(STAND,STAND_NIGHT), list=$("#stnight"), rule=$("#nrule");
+  if(rule) rule.textContent="Сума, наказание, финал, място и точки за сезона.";
+  if(!list) return;
+  var res=n&&n.results||[];
+  if(!res.length){
+    list.innerHTML='<div class="sempty">Няма протокол за тази вечер.</div>';
+    return;
+  }
+  list.innerHTML=res.map(function(r){
+    var place=+r.place||0;
+    var top=place>=1&&place<=3;
+    var col=top?(' style="--c:'+POD_COL[place]+'"'):"";
+    var pen=fmtPen(r.penalty);
+    var bits="Сума "+fmtScore(r.raw)+(pen!=="—"?" · Наказ. "+pen:"")+" · Финал "+fmtScore(r.final!=null&&r.final!==""?r.final:r.raw);
+    return '<div class="srow'+(top?" pod":"")+'"'+col+'><div class="sleft"><span class="srank">'+place+'</span><div class="sname-blk"><b>'+escH(r.team)+'</b><span class="splayed">'+escH(bits)+'</span></div></div><span class="stotal">'+fmtPts(r.points)+'</span></div>';
+  }).join("");
+}
+function redrawStand(){
+  if(STAND_VIEW==="list"&&STAND) drawStandList(STAND);
+  else if(STAND_VIEW==="team"&&STAND_TEAM) drawStandTeam();
+  else if(STAND_VIEW==="night"&&STAND_NIGHT) drawStandNight();
+  fillStandBlurbs();
+}
+
+function fetchStandings(force){
+  var cache=standCache();
+  fillStandBlurbs();
+  redrawStand();
+  if(!URL_||!navigator.onLine){if(cache){cache.offline=true;save(SKEY_ST,cache);fillStandBlurbs();redrawStand()} return}
+  if(!force&&cache&&Date.now()-(cache.at||0)<60000) return;
+  var url=URL_+(URL_.indexOf("?")<0?"?":"&")+"standings=1&_="+Date.now();
+  tfetch(url,{method:"GET"},C.TALLY_TIMEOUT_MS||12000).then(function(r){return r.json()}).then(function(j){
+    if(!j||!j.ok) return;
+    save(SKEY_ST,{at:Date.now(),friday:j.friday||{rows:[]},saturday:j.saturday||{rows:[]}});
+    fillStandBlurbs();
+    redrawStand();
+  }).catch(function(){if(cache){cache.offline=true;save(SKEY_ST,cache);fillStandBlurbs();redrawStand()}});
+}
+$$(".sbtn").forEach(function(b){b.addEventListener("click",function(){showStandList(b.dataset.stand)})});
+$("#sback").addEventListener("click",function(e){
+  if(STAND_VIEW==="night"){e.preventDefault();e.stopPropagation();showStandTeam(STAND_TEAM);arm();return}
+  if(STAND_VIEW==="team"){e.preventDefault();e.stopPropagation();showStandList(STAND);arm();return}
+  if(STAND_VIEW==="list"){e.preventDefault();e.stopPropagation();showStandHome();arm()}
+});
+var standRoot=$("#klasirane");
+if(standRoot) standRoot.addEventListener("click",function(e){
+  var t=e.target.closest("[data-stand-team]");
+  if(t){showStandTeam(t.getAttribute("data-stand-team"));return}
+  var n=e.target.closest("[data-stand-night]");
+  if(n){showStandNight(n.getAttribute("data-stand-night"))}
+});
+document.addEventListener("click",function(e){if(e.target.closest('[data-go="klasirane"]')){showStandHome();fetchStandings(true)}});
+setTimeout(function(){fetchStandings(true)},2800);
+showStandHome();
+window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,night:showStandNight,fetch:fetchStandings,get tab(){return STAND},get view(){return STAND_VIEW}};
+
+/* ---------- seating (v19 map; team buttons in the courtyard) ---------- */
+(function(){
+  var D=window.SEATING||{}, teams=(D.teams||[]).filter(function(t){return t&&norm(t.name)});
+  var place=$("#splace"), map=$("#smap"), sex=$("#sex");
+  if(D.example&&sex) sex.hidden=false;
+  var mapUrl=(D.layout&&(D.layout.map||D.layout.svg))||"map-v19.svg";
+  var hi=null;
+  var MAX_TEAMS=16, COLS=2, ROWS=8;
+  // Courtyard to the right of the hall, below Entrance 2 (SVG canvas units, 1600×1880)
+  var BOX={x:977.4,y:854,w:520.6,h:872.8};
+  function tableIds(t){
+    if(!t) return [];
+    if(t.tables&&t.tables.length) return t.tables.map(String);
+    if(t.table) return [String(t.table)];
+    return [];
+  }
+  function set(n){
+    hi=n;
+    var root=$("#seating");
+    if(root) root.classList.toggle("picked",!!n);
+    if(map) map.classList.toggle("dim",!!n);
+    $$("#seating [data-team]").forEach(function(x){x.classList.toggle("hi",x.dataset.team===n)});
+    var t=n?teams.filter(function(x){return x.name===n})[0]:null;
+    var ids=tableIds(t);
+    $$("#smap .table").forEach(function(el){
+      var id=el.getAttribute("data-table")||el.id;
+      el.classList.toggle("hi", ids.indexOf(id)>=0);
+    });
+  }
+  function showPlace(){
+    if(place) place.hidden=false;
+    if(map) map.hidden=true;
+  }
+  function wrapName(name, maxW, fontSize){
+    var words=String(name).split(/\s+/).filter(Boolean);
+    var lines=[], line="";
+    var avg=fontSize*0.58;
+    function width(s){return s.length*avg}
+    words.forEach(function(w){
+      var trial=line?line+" "+w:w;
+      if(line&&width(trial)>maxW){lines.push(line);line=w;}
+      else line=trial;
+    });
+    if(line) lines.push(line);
+    if(lines.length>2){
+      var keep=lines.slice(0,2);
+      var last=keep[1];
+      if(last.length>10) keep[1]=last.replace(/…$/,"").slice(0,Math.max(8,last.length-2))+"…";
+      return keep;
+    }
+    return lines.length?lines:[name];
+  }
+  function renderButtons(svg){
+    var old=svg.querySelector("#team-btns");
+    if(old) old.remove();
+    var shown=teams.slice(0,MAX_TEAMS);
+    if(!shown.length) return;
+    var ns=svg.namespaceURI;
+    var g=document.createElementNS(ns,"g");
+    g.setAttribute("id","team-btns");
+    var gapX=16, gapY=14;
+    var cols=COLS, rows=ROWS;
+    var bw=(BOX.w-(cols-1)*gapX)/cols;
+    var bh=(BOX.h-(rows-1)*gapY)/rows;
+    var n=shown.length;
+    var usedRows=Math.min(rows, Math.ceil(n/cols));
+    // pack from the top of the courtyard, sized for 8 rows so 16 teams always fit
+    shown.forEach(function(t,i){
+      var col=i%cols, row=Math.floor(i/cols);
+      var x=BOX.x+col*(bw+gapX), y=BOX.y+row*(bh+gapY);
+      var btn=document.createElementNS(ns,"g");
+      btn.setAttribute("class","team-btn");
+      btn.setAttribute("data-team", t.name);
+      var rect=document.createElementNS(ns,"rect");
+      rect.setAttribute("class","team-btn-bg");
+      rect.setAttribute("x", x.toFixed(1));
+      rect.setAttribute("y", y.toFixed(1));
+      rect.setAttribute("width", bw.toFixed(1));
+      rect.setAttribute("height", bh.toFixed(1));
+      rect.setAttribute("rx", "18");
+      btn.appendChild(rect);
+      var pad=14, font=Math.max(28, Math.min(42, bh*0.34));
+      var lines=wrapName(t.name, bw-pad*2, font);
+      if(lines.length>1) font=Math.max(26, font*0.9);
+      var lineH=font*1.15;
+      var startY=y+bh/2-((lines.length-1)*lineH)/2+font*0.35;
+      lines.forEach(function(ln,li){
+        var text=document.createElementNS(ns,"text");
+        text.setAttribute("class","team-btn-label");
+        text.setAttribute("x", (x+bw/2).toFixed(1));
+        text.setAttribute("y", (startY+li*lineH).toFixed(1));
+        text.setAttribute("text-anchor","middle");
+        text.setAttribute("font-size", font.toFixed(1));
+        text.textContent=ln;
+        btn.appendChild(text);
+      });
+      g.appendChild(btn);
+    });
+    svg.appendChild(g);
+  }
+  function mountMap(svgText){
+    if(place) place.hidden=true;
+    if(!map) return;
+    map.hidden=false;
+    map.innerHTML=svgText;
+    var svg=map.querySelector("svg");
+    var by={};
+    teams.forEach(function(t){tableIds(t).forEach(function(id){by[id]=t.name})});
+    $$("#smap .table").forEach(function(el){
+      var id=el.getAttribute("data-table")||el.id;
+      var name=by[id];
+      if(name) el.setAttribute("data-team", name);
+    });
+    if(svg) renderButtons(svg);
+    if(hi) set(hi);
+  }
+  function loadMap(){
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=seat19";
+    fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
+      .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
+      .catch(function(){showPlace()});
+  }
+  if(D.layout===null) showPlace(); else loadMap();
+  var seatEl=document.getElementById("seating");
+  if(seatEl) seatEl.addEventListener("click",function(e){
+    var t=e.target.closest("[data-team]");
+    if(t){set(hi===t.dataset.team?null:t.dataset.team);return}
+    // Unassigned table: clear the current highlight; ignore empty floor taps
+    if(hi&&e.target.closest("#smap .table")) set(null);
+  });
+  window.__seating={set:set,reset:function(){set(null)}};
 })();
 
 /* ---------- storage + backend ---------- */
@@ -253,33 +601,42 @@ function load(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 var status={last:"—",ok:null,lastOk:null,err:""};
 function tfetch(u,o,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error("timeout"))},ms);fetch(u,o).then(function(r){clearTimeout(t);res(r)},function(e){clearTimeout(t);rej(e)})})}
-// online pre-check: person duplicate + team cap. Old servers ignore team/size → {duplicate} only. Timeout/offline → allowed (server decides).
-function remoteCheck(k,team,size){var no={dup:false,full:false};if(!URL_||!navigator.onLine)return Promise.resolve(no);
-  return tfetch(URL_+(URL_.indexOf("?")<0?"?":"&")+"check="+encodeURIComponent(k)+"&team="+encodeURIComponent(team)+"&size="+size,{method:"GET"},C.DUP_CHECK_TIMEOUT_MS||2500).then(function(r){return r.json()})
-  .then(function(j){return {dup:!!(j&&j.duplicate),full:!!(j&&j.full),cap:j&&+j.cap||0}}).catch(function(){return no})}
+function remoteCheck(k,team,size){var no={dup:false,full:false,closed:false};if(!URL_||!navigator.onLine)return Promise.resolve(no);
+  var url=URL_+(URL_.indexOf("?")<0?"?":"&")+"check="+encodeURIComponent(k)+"&team="+encodeURIComponent(team)+"&size="+encodeURIComponent(size)+"&_="+Date.now();
+  return tfetch(url,{method:"GET"},C.DUP_CHECK_TIMEOUT_MS||2500).then(function(r){return r.json()}).then(function(j){
+    if(j&&j.reason==="closed") return {dup:false,full:false,closed:true};
+    return {dup:!!(j&&j.duplicate),full:!!(j&&j.full),cap:j&&j.cap,closed:false};
+  }).catch(function(){return no})}
 var flushing=false;
 function flush(){if(flushing||!URL_)return;var q=load(QKEY,[]);if(!q.length)return;flushing=true;var v=q[0];
-  tfetch(URL_,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(v),redirect:"follow"},C.REQUEST_TIMEOUT_MS||8000)
-  .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})
-  .then(function(j){var drop=j&&j.ok===false&&(j.reason==="team_full"||j.reason==="invalid"||j.error==="invalid"); // final rejection: never retry
-    if(!j||!(j.ok||j.duplicate||drop))throw new Error((j&&j.error)||"bad reply");
-    var q2=load(QKEY,[]).filter(function(x){return x.id!==v.id});save(QKEY,q2);
-    if(drop){var rj=load(RKEY,{}),why=j.reason||"invalid";rj[why]=(rj[why]||0)+1;save(RKEY,rj);
-      var vd=load(VKEY,{});delete vd[v.key];save(VKEY,vd); // the vote did not count
-      status.err=why==="team_full"?"отхвърлен: отбор „"+v.team+"“ е пълен":"отхвърлен: невалиден глас"}
-    else{var s=load(SKEY,0)+1;save(SKEY,s);status.err=j.duplicate?"последният беше дубликат (сървър)":""}
-    status.ok=true;status.lastOk=new Date();flushing=false;if(q2.length)flush();else fetchNames(true);})
-  .catch(function(e){status.ok=false;status.err=String(e.message||e);flushing=false})
-  .then(function(){status.last=new Date();if(adminOpen())renderAdmin()});}
-setInterval(flush,(C.RETRY_SECONDS||30)*1000/Math.min(SPEED,10));addEventListener("online",flush);setTimeout(flush,1500);
-window.__flush=flush;
+  tfetch(URL_,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(v)},C.REQUEST_TIMEOUT_MS||15000)
+    .then(function(r){return r.json()}).then(function(j){
+      status.last=new Date();status.ok=!!(j&&(j.ok||j.reason==="closed"||j.duplicate||j.reason));
+      if(j&&j.ok){status.lastOk=status.last;status.err="";q=load(QKEY,[]).filter(function(x){return x.id!==v.id});save(QKEY,q);save(SKEY,load(SKEY,0)+1)}
+      else if(j&&(j.reason==="team_full"||j.duplicate||j.reason==="invalid"||j.reason==="closed")){
+        var rj=load(RKEY,{});rj[j.reason]=(rj[j.reason]||0)+1;save(RKEY,rj);
+        q=load(QKEY,[]).filter(function(x){return x.id!==v.id});save(QKEY,q);
+        var vd=load(VKEY,{});delete vd[v.key];save(VKEY,vd);
+        status.err=j.reason||j.error||"";
+      }else status.err=(j&&(j.error||j.reason))||"unknown";
+    }).catch(function(e){status.last=new Date();status.ok=false;status.err=String(e&&e.message||e)})
+    .then(function(){flushing=false;if(load(QKEY,[]).length)setTimeout(flush,500)});
+}
+setInterval(flush,(C.RETRY_SECONDS||30)*1000); addEventListener("online",flush); setTimeout(flush,2000);
 
-/* ---------- hidden admin (long-press 5 s on logo) ---------- */
+/* ---------- admin (hold brain logo 5s) ---------- */
 var lp=null,adm=$("#admin");function adminOpen(){return !adm.hidden}
 $$(".logo").forEach(function(l){l.addEventListener("pointerdown",function(){clearTimeout(lp);lp=setTimeout(openAdmin,5000/Math.min(SPEED,10))});["pointerup","pointerleave","pointercancel"].forEach(function(t){l.addEventListener(t,function(){clearTimeout(lp)})})});
 function openAdmin(){adm.hidden=false;clearInterval(tick);renderAdmin()}
 function fmt(d){return d&&d.toLocaleTimeString?d.toLocaleTimeString("bg-BG"):"—"}
-function renderAdmin(){var q=load(QKEY,[]),rj=load(RKEY,{}),D=window.SEATING||{};$("#ainfo").innerHTML="<div>Киоск: <b>"+KIOSK+"</b></div><div>Седмица: <b>"+weekKey()+"</b> (ср–вт) · карта: <b>"+escH(D.night||"—")+"</b> · отбори за гласуване: <b>"+TEAMS.length+"</b>"+(WEEK_OK?"":" · <b>⚠️ seating.js не е за тази седмица</b>")+"</div><div>Отхвърлени (пълен отбор): <b>"+(rj.team_full||0)+"</b>"+(rj.invalid?" · невалидни: <b>"+rj.invalid+"</b>":"")+"</div><div>Гласове в опашката: <b>"+q.length+"</b></div><div>Изпратени от този киоск: <b>"+load(SKEY,0)+"</b></div><div>Бекенд: <b>"+(URL_?(status.ok===null?"още не е проверен":status.ok?"✅ OK":"⚠️ грешка"):"⚠️ няма зададен WEB_APP_URL")+"</b></div><div>Мрежа: <b>"+(navigator.onLine?"онлайн":"офлайн")+"</b></div><div>Последен опит: "+fmt(status.last)+" · Последен успех: "+fmt(status.lastOk)+"</div>"+(status.err?"<div>Грешка: "+status.err.replace(/</g,"&lt;")+"</div>":"")}
+function renderAdmin(){var q=load(QKEY,[]),rj=load(RKEY,{}),D=window.SEATING||{};
+  $("#ainfo").innerHTML="<div>Киоск: <b>"+KIOSK+"</b></div>"+
+    "<div>Уикенд: <b>"+weekKey()+"</b> (петък) · гласуване: <b>"+(voteOpen()?"отворено":"затворено")+"</b> (пт–сб 16:00–02:00) · карта: <b>"+escH(D.night||"—")+"</b> · отбори за гласуване: <b>"+TEAMS.length+"</b>"+(WEEK_OK?"":" · <b>⚠️ seating.js не е за този уикенд</b>")+"</div>"+
+    "<div>Отхвърлени (пълен отбор): <b>"+(rj.team_full||0)+"</b>"+(rj.invalid?" · невалидни: <b>"+rj.invalid+"</b>":"")+(rj.closed?" · извън прозореца: <b>"+rj.closed+"</b>":"")+"</div>"+
+    "<div>Гласове в опашката: <b>"+q.length+"</b></div><div>Изпратени от този киоск: <b>"+load(SKEY,0)+"</b></div>"+
+    "<div>Бекенд: <b>"+(URL_?(status.ok===null?"още не е проверен":status.ok?"✅ OK":"⚠️ грешка"):"⚠️ няма зададен WEB_APP_URL")+"</b></div>"+
+    "<div>Мрежа: <b>"+(navigator.onLine?"онлайн":"офлайн")+"</b></div>"+
+    "<div>Последен опит: "+fmt(status.last)+" · Последен успех: "+fmt(status.lastOk)+"</div>"+(status.err?"<div>Грешка: "+status.err.replace(/</g,"&lt;")+"</div>":"")}
 $("#aflush").addEventListener("click",function(){flush();setTimeout(renderAdmin,1500)});
 $("#areload").addEventListener("click",function(){location.reload()});
 $("#aclose").addEventListener("click",function(){adm.hidden=true;arm()});
