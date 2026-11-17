@@ -46,6 +46,9 @@ p{font-size:var(--f,44px);line-height:1.35;font-weight:500;margin-bottom:var(--g
 .themes{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin-top:8px}
 .theme{position:relative;white-space:nowrap;background:rgba(91,44,138,.7);border:4px solid #8e5cc4;border-radius:32px;font-size:40px;font-weight:700;padding:26px 20px;margin-bottom:16px;text-align:left;transition:background .15s,border-color .15s,transform .1s}
 .theme.wide{grid-column:span 2}
+.themes.many .theme{font-size:34px;padding:20px 18px;margin-bottom:12px;border-radius:28px}
+.theme.long{font-size:34px}.theme.xlong{font-size:28px}
+.theme{overflow:visible;text-overflow:clip}
 .theme.sel{border-color:#FFD54F;background:#7a3fb5;box-shadow:0 0 0 6px rgba(255,213,79,.45);color:#FFE98A}
 .theme.sel::after{content:"✅";position:absolute;right:-8px;top:-16px;font-size:40px;filter:drop-shadow(0 2px 3px #000)}
 .submit{display:block;width:100%;background:#FFD54F;color:#2a1240;text-align:center;font-size:62px;font-weight:900;border-radius:44px;padding:40px;box-shadow:0 10px 0 #b8901f;margin-top:16px;transition:opacity .2s}

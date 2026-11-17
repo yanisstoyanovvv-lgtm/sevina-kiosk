@@ -54,7 +54,7 @@ window.__week={weekKey:weekKey,nightDate:nightDate,voteOpen:voteOpen,nowMs:nowMs
 var cur="home",deadline=0,total=0,tick=null;
 function go(id){var nx=$("#"+id);if(!nx)return;var old=$(".screen.active");if(old===nx){arm();return}
   if(old){old.classList.remove("active");if(old.id==="vote")resetVote();if(old.id==="seating"&&window.__seating)window.__seating.reset();if(old.id==="klasirane"&&window.__standings)window.__standings.home()}
-  nx.classList.add("active");cur=id;var sc=$(".vscroll",nx);if(sc)sc.scrollTop=0;
+  nx.classList.add("active");cur=id;if(old&&old.id==="vote"&&window.__applyPending)window.__applyPending();var sc=$(".vscroll",nx);if(sc)sc.scrollTop=0;
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();fit();arm();
   if(id==="vote")syncVoteView();}
 function arm(){var t=+($("#"+cur).dataset.t||0);clearInterval(tick);if(!t){deadline=0;return}
@@ -95,15 +95,23 @@ window.__check=check;
 var escH=function(x){return String(x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
 
 /* ---------- this weekend's nights + teams (seating.js) ---------- */
-var D0=window.SEATING||{},NIGHTS=(D0.nights||[]).filter(function(n){return n&&n.teams}),CUR_WEEK=weekKey(),WEEK_OK=true,NIGHT=null;
-if(NIGHTS.length){
-  var srt=NIGHTS.filter(function(n){return n.date}).sort(function(a,b){return a.date<b.date?-1:1}),td=nightDate();
-  NIGHT=srt.filter(function(n){return n.date===td})[0]||srt.filter(function(n){return n.date>td})[0]||srt[srt.length-1]||NIGHTS[0];
-  D0.teams=NIGHT.teams;D0.night=NIGHT.label||NIGHT.date;
-  var wk=NIGHTS.filter(function(n){return n.date&&weekKey(Date.parse(n.date+"T12:00:00+02:00"))===CUR_WEEK});
-  WEEK_OK=wk.length>0;var src=WEEK_OK?wk:NIGHTS;
-  var allT=[];src.forEach(function(n){allT=allT.concat(n.teams)});
-}else var allT=D0.teams||[];
+/* topics: seating can come from the sheet („Резервации“, ?config=1) – see "remote config" below. */
+var D0=window.SEATING||{};window.SEATING=D0;
+var NIGHTS=[],CUR_WEEK=weekKey(),WEEK_OK=true,NIGHT=null,allT=[];
+var BUILTIN={nights:D0.nights,teams:D0.teams,example:D0.example}; // seating.js = last-resort fallback
+function pickNights(){
+  CUR_WEEK=weekKey();NIGHT=null;WEEK_OK=true;
+  NIGHTS=(D0.nights||[]).filter(function(n){return n&&n.teams});
+  if(NIGHTS.length){
+    var srt=NIGHTS.filter(function(n){return n.date}).sort(function(a,b){return a.date<b.date?-1:1}),td=nightDate();
+    NIGHT=srt.filter(function(n){return n.date===td})[0]||srt.filter(function(n){return n.date>td})[0]||srt[srt.length-1]||NIGHTS[0];
+    D0.teams=NIGHT.teams;D0.seats=NIGHT.seats||null;D0.night=NIGHT.label||NIGHT.date;
+    var wk=NIGHTS.filter(function(n){return n.date&&weekKey(Date.parse(n.date+"T12:00:00+02:00"))===CUR_WEEK});
+    WEEK_OK=wk.length>0;var src=WEEK_OK?wk:NIGHTS;
+    allT=[];src.forEach(function(n){allT=allT.concat(n.teams)});
+  }else{allT=D0.teams||[];D0.seats=null}
+}
+pickNights();
 
 function fillKakvo(){
   var card=$("#kakvo-card"); if(!card) return;
@@ -144,9 +152,11 @@ setInterval(syncVoteView,30000);
 
 /* ---------- vote form ---------- */
 var TEAM_BY={},TEAMS=[];
+function buildTeams(){var k0;for(k0 in TEAM_BY)delete TEAM_BY[k0];TEAMS.length=0;
 allT.forEach(function(t){if(!t||!norm(t.name))return;var k=key(t.name),s=Math.max(1,parseInt(t.size,10)||0);
   if(TEAM_BY[k])TEAM_BY[k].size=Math.max(TEAM_BY[k].size,s);else{TEAM_BY[k]={name:norm(t.name),size:s};TEAMS.push(TEAM_BY[k])}});
-TEAMS.sort(function(a,b){return a.name.localeCompare(b.name,"bg")});
+TEAMS.sort(function(a,b){return a.name.localeCompare(b.name,"bg")});}
+buildTeams();
 window.__teams=TEAMS;
 var form=$("#vform"),fn=$("#fname"),ft=$("#fteam"),ftv=$("#fteamv"),sub=$("#vsubmit"),pick=$("#tpick"),tlist=$("#tlist"),nsug=$("#nsug"),theme="",teamSel="";
 var touched={name:false,team:false};
@@ -187,7 +197,39 @@ fn.addEventListener("input",function(){if(fn.value.length>2)touched.name=true;up
 fn.addEventListener("focus",function(){fetchNames();renderSug()});
 fn.addEventListener("blur",function(){setTimeout(function(){if(document.activeElement!==fn)hideSug()},200);if(fn.value)touched.name=true;upd()});
 fn.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();fn.blur()}});
-$$(".theme").forEach(function(b){b.addEventListener("click",function(){theme=b.dataset.theme;$$(".theme").forEach(function(x){x.classList.toggle("sel",x===b);x.setAttribute("aria-pressed",x===b)});if(document.activeElement)document.activeElement.blur();upd()})});
+var themesBox=$("#vform .themes");
+themesBox.addEventListener("click",function(e){var b=e.target.closest(".theme");if(!b)return;theme=b.dataset.theme;$$(".theme").forEach(function(x){x.classList.toggle("sel",x===b);x.setAttribute("aria-pressed",x===b)});if(document.activeElement)document.activeElement.blur();upd()});
+/* ---------- vote topics (from the „Теми“ tab via ?config=1 / ?tally=1; cached; built-in fallback) ---------- */
+var TOPKEY="sevina.topics.v1",MAX_TOPICS=10;
+var TOPICS=$$(".theme",themesBox).map(function(b){return b.dataset.theme});   // built-in list in index.html
+var TOPIC_SRC="вградени",TOPIC_AT=null,pendingTopics=null;
+function tLen(s){return s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,"_").length}   // emoji = 1 (built-in "🎬 Филми и сериали" = 17 fits half width)
+function tKey(s){return norm(s).toLocaleLowerCase("bg")}
+function topicIdx(list,s){var k=tKey(s);for(var i=0;i<list.length;i++)if(tKey(list[i])===k)return i;return -1}
+function cleanTopics(a){var out=[];(a||[]).forEach(function(x){x=norm(String(x==null?"":x));if(x&&topicIdx(out,x)<0&&out.length<MAX_TOPICS)out.push(x)});return out}
+function renderTopics(){
+  themesBox.innerHTML="";
+  var col=0,many=TOPICS.length>6,LIM=many?19:18;themesBox.classList.toggle("many",many);
+  TOPICS.forEach(function(t,i){var b=document.createElement("button");b.type="button";b.className="theme";b.dataset.theme=t;b.textContent=t;
+    var wide=tLen(t)>LIM;var next=TOPICS[i+1];
+    // a short topic alone at the end of a row (last one, or next is wide) also spans the row
+    if(!wide&&col===0&&(next==null||tLen(next)>LIM))wide=true;
+    if(wide){b.classList.add("wide");var L=tLen(t);if(L>34)b.classList.add("xlong");else if(L>27)b.classList.add("long");col=0}else col=(col+1)%2;
+    if(theme&&tKey(theme)===tKey(t)){b.classList.add("sel");b.setAttribute("aria-pressed","true")}
+    themesBox.appendChild(b)});
+  if(theme&&topicIdx(TOPICS,theme)<0){theme="";}
+}
+// Apply a new list; while someone is filling in the vote form, wait until they leave the screen.
+function setTopics(list,src){var l=cleanTopics(list);if(!l.length)return false;
+  TOPIC_SRC=src||"таблица";TOPIC_AT=new Date();save(TOPKEY,{list:l,at:Date.now()});
+  if(l.join("\n")===TOPICS.join("\n"))return false;
+  if(cur==="vote"&&!form.hidden){pendingTopics=l;return false}
+  TOPICS=l;pendingTopics=null;renderTopics();upd();
+  if(cur==="vote"&&form.hidden)showClosedTally();
+  return true}
+(function(){var c=load(TOPKEY,null);if(c&&c.list){var l=cleanTopics(c.list);if(l.length){TOPICS=l;TOPIC_SRC="кеш"}}renderTopics()})();
+window.__topics={set:setTopics,get list(){return TOPICS},get pending(){return pendingTopics}};
+
 var vs=$("#vote .vscroll"),fwrap=fn.closest(".acwrap");
 fn.addEventListener("focus",function(){vs.classList.add("kb");var y=function(){vs.scrollTop=Math.max(0,fwrap.offsetTop-260)};setTimeout(y,60);setTimeout(y,400)});
 document.addEventListener("focusout",function(){setTimeout(function(){if(!document.activeElement||document.activeElement.tagName!=="INPUT"){vs.classList.remove("kb");fit()}},50)});
@@ -211,18 +253,21 @@ form.addEventListener("submit",function(e){e.preventDefault();touched={name:true
 document.addEventListener("click",function(e){var g=e.target.closest('[data-go="vote"]');if(g)fetchNames()});setTimeout(function(){fetchNames(true)},2500);
 var TKEY="sevina.tally.v1";
 function tallyEls(bars,noteEl){return {bars:bars||$("#tbars"),note:noteEl||$("#tnote")}}
-function drawTally(t,note,bars,noteEl){var el=tallyEls(bars,noteEl);
-  var names=$$(".theme").map(function(b){return b.dataset.theme}),w=weekKey();
-  var q=load(QKEY,[]).filter(function(v){return weekKey(Date.parse(v.ts))===w});var c={};names.forEach(function(n){c[n]=(t&&t[n])||0});q.forEach(function(v){if(c.hasOwnProperty(v.theme))c[v.theme]++});
+function drawTally(t,note,bars,noteEl,noQueue,only){var el=tallyEls(bars,noteEl);
+  // keyed on topic TEXT: current topics first, then any other topic that already has votes
+  var names=(only||TOPICS).slice(),w=weekKey(),k0;if(!only&&t)for(k0 in t)if(t[k0]>0&&topicIdx(names,k0)<0)names.push(k0);
+  var q=noQueue?[]:load(QKEY,[]).filter(function(v){return weekKey(Date.parse(v.ts))===w});var c={};names.forEach(function(n){c[n]=(t&&t[n])||0});q.forEach(function(v){var i=topicIdx(names,v.theme);if(i<0){names.push(v.theme);c[v.theme]=0;i=names.length-1}c[names[i]]++});
   var tot=names.reduce(function(a,n){return a+c[n]},0),mx=Math.max.apply(null,names.map(function(n){return c[n]}));
-  if(el.bars) el.bars.innerHTML=names.map(function(n){var pc=tot?Math.round(c[n]*100/tot):0;return '<div class="tb'+(c[n]===mx&&mx>0?' lead':'')+'" data-theme="'+n.replace(/"/g,"&quot;")+'"><div class="bl"><span>'+n+'</span><b>'+c[n]+' · '+pc+'%</b></div><div class="bt"><i style="width:'+pc+'%"></i></div></div>'}).join("");
+  if(el.bars) el.bars.innerHTML=names.map(function(n){var pc=tot?Math.round(c[n]*100/tot):0;return '<div class="tb'+(c[n]===mx&&mx>0?' lead':'')+'" data-theme="'+escH(n)+'"><div class="bl"><span>'+escH(n)+'</span><b>'+c[n]+' · '+pc+'%</b></div><div class="bt"><i style="width:'+pc+'%"></i></div></div>'}).join("");
   if(el.note) el.note.textContent=note||"";}
 function showTally(bars,noteEl){var el=tallyEls(bars,noteEl);var cache=load(TKEY,null);if(cache&&cache.week&&cache.week!==weekKey())cache={t:{},week:weekKey()};
   if(el.bars) el.bars.innerHTML="";if(el.note) el.note.textContent="Зареждане на резултатите…";
   var off=function(){if(cache)drawTally(cache.t,"Последни известни резултати – ще се обновят след връзка с интернет.",el.bars,el.note);else{if(el.bars)el.bars.innerHTML="";if(el.note)el.note.textContent="Резултатите ще се покажат след връзка с интернет."}};
   if(!URL_){off();return}
   var got=false,attempts=0,ms=C.TALLY_TIMEOUT_MS||12000;
-  function apply(j){if(!j||!j.ok||!j.tallies)return false;got=true;save(TKEY,{t:j.tallies,at:Date.now(),week:j.week||weekKey()});drawTally(j.tallies,"",el.bars,el.note);return true}
+  function apply(j){if(!j||!j.ok||!j.tallies)return false;got=true;if(j.topics)setTopics(j.topics,"sheet");save(TKEY,{t:j.tallies,at:Date.now(),week:j.week||weekKey(),last:j.last||null});
+    if(!j.open&&!j.total&&j.last&&j.last.results&&j.last.results.length){drawLast(j.last,el);return true}
+    drawTally(j.tallies,"",el.bars,el.note);return true}
   function failOrRetry(){if(got)return;if(attempts<2){doFetch();return}off()}
   function doFetch(){attempts++;var url=URL_+(URL_.indexOf("?")<0?"?":"&")+"tally=1&_="+Date.now();
     var settled=false,to=setTimeout(function(){if(settled||got)return;settled=true;failOrRetry()},ms);
@@ -232,6 +277,10 @@ function showTally(bars,noteEl){var el=tallyEls(bars,noteEl);var cache=load(TKEY
     }).catch(function(){clearTimeout(to);if(got||settled)return;settled=true;failOrRetry()})}
   doFetch();}
 function showClosedTally(){showTally($("#vtbars"),$("#vtnote"))}
+// After Monday's archive the live tally is reset; while voting is closed show the last round instead.
+function drawLast(L,el){var t={},names=[];L.results.forEach(function(r){names.push(r.t);t[r.t]=+r.votes||0});
+  var p=String(L.date||"").split("-"),dm=p.length===3?p[2]+"."+p[1]:"";
+  drawTally(t,"Резултати от последното гласуване"+(dm?" (уикенд "+dm+")":"")+(L.winner?" – печели „"+L.winner+"“ 🏆":"")+". Новото гласуване започва в петък от 16:00.",el.bars,el.note,true,names)}
 window.__showTally=showTally;
 function dup(name,team){$("#eform").textContent="Вече има глас от „"+name+"“ от отбор „"+team+"“ този уикенд. Всеки гласува само веднъж през уикенда – благодарим! 🙂";toast("Този човек вече е гласувал 🙂")}
 function full(team,n){$("#eform").textContent=n===1?"Отбор „"+team+"“ вече е подал своя 1 глас този уикенд 🙂":"Отбор „"+team+"“ вече е подал всички "+n+" гласа този уикенд 🙂";toast("Отборът вече е гласувал изцяло 🙂")}
@@ -465,9 +514,13 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
 
 /* ---------- seating (v19 map; team buttons in the courtyard) ---------- */
 (function(){
-  var D=window.SEATING||{}, teams=(D.teams||[]).filter(function(t){return t&&norm(t.name)});
-  var place=$("#splace"), map=$("#smap"), sex=$("#sex");
-  if(D.example&&sex) sex.hidden=false;
+  var D=window.SEATING||{}, teams=[];
+  var place=$("#splace"), map=$("#smap"), sex=$("#sex"), curSvg=null;
+  var seats=[];
+  function readTeams(){teams=(D.teams||[]).filter(function(t){return t&&norm(t.name)});if(sex)sex.hidden=!D.example;
+    // buttons: from the sheet = one per table/merged group (sheet order); from seating.js = one per team
+    seats=(D.seats&&D.seats.length?D.seats:teams).filter(function(t){return t&&norm(t.name)})}
+  readTeams();
   var mapUrl=(D.layout&&(D.layout.map||D.layout.svg))||"map-v19.svg";
   var hi=null;
   var MAX_TEAMS=16, COLS=2, ROWS=8;
@@ -475,9 +528,9 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
   var BOX={x:977.4,y:854,w:520.6,h:872.8};
   function tableIds(t){
     if(!t) return [];
-    if(t.tables&&t.tables.length) return t.tables.map(String);
-    if(t.table) return [String(t.table)];
-    return [];
+    var ids=t.tables&&t.tables.length?t.tables:t.table?[t.table]:[];
+    // unknown ids (not on the map) are dropped safely
+    return ids.map(function(x){return norm(String(x)).toUpperCase().replace(/^Т/,"T")}).filter(function(x){return /^T\d{1,2}$/.test(x)&&(!curSvg||map.querySelector('[data-table="'+x+'"],#'+x))});
   }
   function set(n){
     hi=n;
@@ -485,8 +538,8 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     if(root) root.classList.toggle("picked",!!n);
     if(map) map.classList.toggle("dim",!!n);
     $$("#seating [data-team]").forEach(function(x){x.classList.toggle("hi",x.dataset.team===n)});
-    var t=n?teams.filter(function(x){return x.name===n})[0]:null;
-    var ids=tableIds(t);
+    var ids=[];
+    if(n) seats.concat(teams).forEach(function(x){if(x.name===n)tableIds(x).forEach(function(id){if(ids.indexOf(id)<0)ids.push(id)})});
     $$("#smap .table").forEach(function(el){
       var id=el.getAttribute("data-table")||el.id;
       el.classList.toggle("hi", ids.indexOf(id)>=0);
@@ -547,7 +600,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
   function renderButtons(svg){
     var old=svg.querySelector("#team-btns");
     if(old) old.remove();
-    var shown=teams.slice(0,MAX_TEAMS);
+    var shown=seats.slice(0,MAX_TEAMS);
     if(!shown.length) return;
     var ns=svg.namespaceURI;
     var g=document.createElementNS(ns,"g");
@@ -565,6 +618,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
       var btn=document.createElementNS(ns,"g");
       btn.setAttribute("class","team-btn");
       btn.setAttribute("data-team", t.name);
+      var tids=tableIds(t); if(tids.length) btn.setAttribute("data-tables", tids.join("+"));
       var rect=document.createElementNS(ns,"rect");
       rect.setAttribute("class","team-btn-bg");
       rect.setAttribute("x", x.toFixed(1));
@@ -598,19 +652,24 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     if(!map) return;
     map.hidden=false;
     map.innerHTML=svgText;
-    var svg=map.querySelector("svg");
+    var svg=map.querySelector("svg");curSvg=svg;
+    if(svg){ try{ htmlFills(svg); }catch(e){} }
+    tagTables();
+  }
+  function tagTables(){
     var by={};
-    teams.forEach(function(t){tableIds(t).forEach(function(id){by[id]=t.name})});
+    seats.forEach(function(t){tableIds(t).forEach(function(id){if(!by[id])by[id]=t.name})});
     $$("#smap .table").forEach(function(el){
       var id=el.getAttribute("data-table")||el.id;
       var name=by[id];
-      if(name) el.setAttribute("data-team", name);
+      if(name) el.setAttribute("data-team", name); else el.removeAttribute("data-team");
     });
-    if(svg){ try{ htmlFills(svg); }catch(e){} renderButtons(svg); }
-    if(hi) set(hi);
+    if(curSvg) renderButtons(curSvg);
+    if(hi&&!seats.some(function(x){return x.name===hi})) hi=null;
+    set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=darkfix";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=topics";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
@@ -623,8 +682,46 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     // Unassigned table: clear the current highlight; ignore empty floor taps
     if(hi&&e.target.closest("#smap .table")) set(null);
   });
-  window.__seating={set:set,reset:function(){set(null)}};
+  window.__seating={set:set,reset:function(){set(null)},refresh:function(){readTeams();tagTables()},get teams(){return teams},get seats(){return seats}};
 })();
+
+/* ---------- remote config: topics + seating from the sheet (?config=1), polled ---------- */
+var SEATKEY="sevina.seating.v1",SEAT_SRC=BUILTIN.nights?"seating.js":"няма",SEAT_AT=null,pendingSeat=null,CFG_ERR="";
+function seatOk(s){return s&&s.source==="sheet"&&s.nights&&s.nights.length&&s.week}
+function applySeating(s,src){
+  if(!seatOk(s))return false;
+  if(s.week<weekKey())return false;                       // stale (older weekend) → ignore
+  var nights=s.nights.map(function(n){var o={date:String(n.date||""),type:n.type==="themed"?"themed":"gk",label:norm(n.label||n.date||""),
+      teams:(n.teams||[]).filter(function(t){return t&&norm(t.name)}).map(function(t){var x={name:norm(String(t.name)).slice(0,50),size:Math.max(1,parseInt(t.size,10)||1)};
+        if(t.tables&&t.tables.length)x.tables=t.tables.map(String);else if(t.table)x.table=String(t.table);return x})};
+    // seats = one seating button per table / merged group, in the sheet's row order
+    if(n.seats&&n.seats.length)o.seats=n.seats.filter(function(t){return t&&norm(t.name)}).map(function(t){return {name:norm(String(t.name)).slice(0,50),tables:(t.tables||[]).map(String)}});
+    var th=norm(n.theme||"");
+    if(!th)(BUILTIN.nights||[]).forEach(function(b){if(b&&b.date===o.date&&b.theme)th=b.theme});   // theme fallback: seating.js
+    if(th)o.theme=th;return o});
+  var sig=JSON.stringify(nights);
+  SEAT_SRC=src;SEAT_AT=new Date();
+  if(src!=="кеш")save(SEATKEY,{week:s.week,nights:nights,at:Date.now(),source:"sheet"});
+  if(sig===JSON.stringify(D0.nights)&&D0.example===false)return false;
+  if(cur==="vote"&&!form.hidden){pendingSeat={s:s,src:src};return false}
+  D0.nights=nights;D0.example=false;pendingSeat=null;
+  pickNights();buildTeams();fillKakvo();
+  if(teamSel&&!TEAM_BY[key(teamSel)])setTeam("");
+  if(window.__seating&&window.__seating.refresh)window.__seating.refresh();
+  upd();return true}
+window.__applyPending=function(){if(pendingTopics){var l=pendingTopics;pendingTopics=null;setTopics(l,TOPIC_SRC)}
+  if(pendingSeat){var p=pendingSeat;pendingSeat=null;applySeating(p.s,p.src)}};
+(function(){var c=load(SEATKEY,null);if(c&&c.week>=weekKey())applySeating({source:"sheet",week:c.week,nights:c.nights},"кеш")})();
+var cfgBusy=false;
+function fetchConfig(){if(!URL_||cfgBusy||navigator.onLine===false)return;cfgBusy=true;
+  tfetch(URL_+(URL_.indexOf("?")<0?"?":"&")+"config=1&_="+Date.now(),{method:"GET"},C.TALLY_TIMEOUT_MS||12000).then(function(r){return r.json()}).then(function(j){
+    CFG_ERR="";if(!j||!j.ok){CFG_ERR=(j&&j.error)||"грешка";return}
+    if(j.topics&&j.topics.source==="sheet")setTopics(j.topics.list,"таблица");
+    if(j.seating)applySeating(j.seating,"таблица");
+  }).catch(function(e){CFG_ERR=String(e&&e.message||e)}).then(function(){cfgBusy=false})}
+setTimeout(fetchConfig,1500);setInterval(fetchConfig,(C.CONFIG_POLL_SECONDS||60)*1000);
+addEventListener("online",fetchConfig);document.addEventListener("visibilitychange",function(){if(!document.hidden)fetchConfig()});
+window.__config={fetch:fetchConfig,applySeating:applySeating};
 
 /* ---------- storage + backend ---------- */
 function load(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}}
@@ -665,6 +762,7 @@ function renderAdmin(){var q=load(QKEY,[]),rj=load(RKEY,{}),D=window.SEATING||{}
     "<div>Отхвърлени (пълен отбор): <b>"+(rj.team_full||0)+"</b>"+(rj.invalid?" · невалидни: <b>"+rj.invalid+"</b>":"")+(rj.closed?" · извън прозореца: <b>"+rj.closed+"</b>":"")+"</div>"+
     "<div>Гласове в опашката: <b>"+q.length+"</b></div><div>Изпратени от този киоск: <b>"+load(SKEY,0)+"</b></div>"+
     "<div>Бекенд: <b>"+(URL_?(status.ok===null?"още не е проверен":status.ok?"✅ OK":"⚠️ грешка"):"⚠️ няма зададен WEB_APP_URL")+"</b></div>"+
+    "<div>Теми: <b>"+escH(TOPIC_SRC)+"</b> ("+TOPICS.length+")"+(TOPIC_AT?" · "+fmt(TOPIC_AT):"")+" · Места/резервации: <b>"+escH(SEAT_SRC)+"</b>"+(SEAT_AT?" · "+fmt(SEAT_AT):"")+(CFG_ERR?" · ⚠️ "+escH(CFG_ERR):"")+"</div>"+
     "<div>Мрежа: <b>"+(navigator.onLine?"онлайн":"офлайн")+"</b></div>"+
     "<div>Последен опит: "+fmt(status.last)+" · Последен успех: "+fmt(status.lastOk)+"</div>"+(status.err?"<div>Грешка: "+status.err.replace(/</g,"&lt;")+"</div>":"")}
 $("#aflush").addEventListener("click",function(){flush();setTimeout(renderAdmin,1500)});

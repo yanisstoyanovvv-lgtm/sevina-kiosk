@@ -7,5 +7,6 @@ window.CONFIG = {
   RETRY_SECONDS: 30,          // offline queue retry interval
   REQUEST_TIMEOUT_MS: 15000,  // POST vote / flush; Apps Script cold starts can be slow
   TALLY_TIMEOUT_MS: 12000,    // GET tally=1; retry once on fail/timeout
+  CONFIG_POLL_SECONDS: 60,    // re-read topics („Теми“) + seating („Резервации“) from the sheet
   DUP_CHECK_TIMEOUT_MS: 2500  // online duplicate pre-check; if slower, vote is accepted and server dedupes
 };
