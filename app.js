@@ -515,6 +515,35 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     }
     return lines.length?lines:[name];
   }
+  // darkfix: old Android WebViews (e.g. 105) with force-dark invert dark SVG
+  // fills to near-white, but leave HTML backgrounds alone. So dark fills are
+  // painted by HTML <div>s in <foreignObject>s; the SVG shape keeps its stroke.
+  function htmlBox(ns, x, y, w, h, rx, color, cls){
+    var fo=document.createElementNS(ns,"foreignObject");
+    fo.setAttribute("x", x); fo.setAttribute("y", y);
+    fo.setAttribute("width", w); fo.setAttribute("height", h);
+    fo.setAttribute("class","hfill");
+    var d=document.createElementNS("http://www.w3.org/1999/xhtml","div");
+    if(cls) d.className=cls;
+    d.style.cssText="width:100%;height:100%;border-radius:"+(+rx||0)+"px"+(color?";background:"+color:"");
+    fo.appendChild(d);
+    return fo;
+  }
+  function isDark(c){
+    var m=/^#([0-9a-f]{6})$/i.exec(c||""); if(!m) return false;
+    var n=parseInt(m[1],16), r=n>>16, g=(n>>8)&255, b=n&255;
+    return (0.299*r+0.587*g+0.114*b)<140;
+  }
+  function htmlFills(svg){
+    var ns=svg.namespaceURI;
+    Array.prototype.slice.call(svg.querySelectorAll("rect")).forEach(function(r){
+      var f=r.getAttribute("fill");
+      if(!isDark(f)||r.closest(".table")||r.closest("clipPath")||r.getAttribute("transform")) return;
+      var a=function(k){return r.getAttribute(k)||"0"};
+      r.parentNode.insertBefore(htmlBox(ns, a("x"), a("y"), a("width"), a("height"), r.getAttribute("rx"), f), r);
+      r.setAttribute("fill","none");
+    });
+  }
   function renderButtons(svg){
     var old=svg.querySelector("#team-btns");
     if(old) old.remove();
@@ -543,6 +572,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
       rect.setAttribute("width", bw.toFixed(1));
       rect.setAttribute("height", bh.toFixed(1));
       rect.setAttribute("rx", "18");
+      btn.appendChild(htmlBox(ns, x, y, bw, bh, 18, null, "team-btn-fill"));
       btn.appendChild(rect);
       var pad=14, font=Math.max(28, Math.min(42, bh*0.34));
       var lines=wrapName(t.name, bw-pad*2, font);
@@ -576,11 +606,11 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
       var name=by[id];
       if(name) el.setAttribute("data-team", name);
     });
-    if(svg) renderButtons(svg);
+    if(svg){ try{ htmlFills(svg); }catch(e){} renderButtons(svg); }
     if(hi) set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=seatdemo";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=darkfix";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
