@@ -669,7 +669,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=topics";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=renum";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
