@@ -107,8 +107,8 @@ function pickNights(){
     NIGHT=srt.filter(function(n){return n.date===td})[0]||srt.filter(function(n){return n.date>td})[0]||srt[srt.length-1]||NIGHTS[0];
     D0.teams=NIGHT.teams;D0.seats=NIGHT.seats||null;D0.night=NIGHT.label||NIGHT.date;
     var wk=NIGHTS.filter(function(n){return n.date&&weekKey(Date.parse(n.date+"T12:00:00+02:00"))===CUR_WEEK});
-    WEEK_OK=wk.length>0;var src=WEEK_OK?wk:NIGHTS;
-    allT=[];src.forEach(function(n){allT=allT.concat(n.teams)});
+    WEEK_OK=wk.length>0;
+    allT=(NIGHT.teams||[]).slice();
   }else{allT=D0.teams||[];D0.seats=null}
 }
 pickNights();
@@ -676,7 +676,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=teamfix";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=tonightonly";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
