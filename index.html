@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="app-version" content="renum">
+<meta name="app-version" content="clean">
 <meta name="color-scheme" content="dark">
 <title>Sevina 2.0 Quiz – киоск</title>
-<link rel="stylesheet" href="style.css?v=renum">
+<link rel="stylesheet" href="style.css?v=clean">
 </head>
 <body>
 <div id="stage">
@@ -15,7 +15,7 @@
 <section id="home" class="screen home six active" data-t="0">
   <div class="wrap">
     <div class="hero">
-      <img class="herobrain logo" src="assets/brain.png?v=renum" alt="">
+      <img class="herobrain logo" src="assets/brain.png?v=clean" alt="">
       <div class="htitle">Sevina 2.0 Quiz</div>
       <div class="hsub">Докосни бутон, за да научиш повече 👇</div>
     </div>
@@ -32,7 +32,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Как протича тази куиз вечер?</h1>
     <div class="card" id="kakvo-card" style="--f:41px;--g:16px"></div>
@@ -44,7 +44,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Правила и точкуване</h1>
     <div class="card" style="--f:44px;--g:22px">
@@ -65,7 +65,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" id="sback" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 id="stand-title">Сезонно класиране</h1>
     <div id="stand-home">
@@ -103,7 +103,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="st">🪑 Къде седи отборът ти?</h1>
     <div class="ssub" id="ssub">Докоснете името на отбора си, за да видите къде седите</div>
@@ -114,7 +114,7 @@
       <p>🗺️ Планът на масите не можа да се зареди.</p>
       <p>Попитай водещия за вашата маса.</p>
     </div>
-    <div class="foot sfoot"><div class="bar"><i></i></div><span class="cd"><span id="sex" hidden>Примерни отбори · </span>Връщане към началото след <b class="n"></b> сек. без докосване</span></div>
+    <div class="foot sfoot"><div class="bar"><i></i></div><span class="cd"><span id="sex" hidden></span>Връщане към началото след <b class="n"></b> сек. без докосване</span></div>
   </div>
 </section>
 
@@ -122,7 +122,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>👋 За нас</h1>
     <div class="card" style="--f:34px;--g:14px">
@@ -141,7 +141,7 @@
   <div class="wrap vscroll">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=renum" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=clean" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="vt">🗳️ Ти избираш темата!</h1>
     <p class="vsub">Гласувай за темата на следващата тематична куиз вечер в петък.</p>
@@ -158,13 +158,8 @@
         <div id="nsug" class="nsug" role="listbox" hidden></div>
       </div>
       <div class="err" id="ename"></div>
-      <div class="themes">
-        <button type="button" class="theme" data-theme="🇧🇬 България">🇧🇬 България</button>
-        <button type="button" class="theme" data-theme="🎬 Филми и сериали">🎬 Филми и сериали</button>
-        <button type="button" class="theme" data-theme="🌍 Около света">🌍 Около света</button>
-        <button type="button" class="theme" data-theme="⚽ Спорт">⚽ Спорт</button>
-        <button type="button" class="theme wide" data-theme="🎵 Музика през десетилетията">🎵 Музика през десетилетията</button>
-      </div>
+      <p class="vnote" id="topics-wait">Зареждане на темите…</p>
+      <div class="themes"></div>
       <div class="err" id="eform"></div>
       <button type="submit" class="submit" id="vsubmit" disabled>Гласувай</button>
     </form>
@@ -191,7 +186,7 @@
 <section id="thanks" class="screen" data-t="15">
   <div class="wrap">
     <div class="tbox">
-      <img class="herobrain" src="assets/brain.png?v=renum" alt="">
+      <img class="herobrain" src="assets/brain.png?v=clean" alt="">
       <div class="t1">✅ Благодарим!</div>
       <div class="t2">Гласът ти е записан.</div>
       <div class="tally">
@@ -218,12 +213,12 @@
 <div id="toast"></div>
 </div>
 
-<script src="config.js?v=renum"></script>
-<script src="seating.js?v=renum"></script>
-<script src="app.js?v=renum"></script>
+<script src="config.js?v=clean"></script>
+<script src="seating.js?v=clean"></script>
+<script src="app.js?v=clean"></script>
 <script>
 (function(){
-  window.APP_VERSION="renum";
+  window.APP_VERSION="clean";
   if(!("serviceWorker" in navigator)) return;
   var hadController=!!navigator.serviceWorker.controller, pending=false;
   function doReload(){

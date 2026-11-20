@@ -199,16 +199,23 @@ fn.addEventListener("blur",function(){setTimeout(function(){if(document.activeEl
 fn.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();fn.blur()}});
 var themesBox=$("#vform .themes");
 themesBox.addEventListener("click",function(e){var b=e.target.closest(".theme");if(!b)return;theme=b.dataset.theme;$$(".theme").forEach(function(x){x.classList.toggle("sel",x===b);x.setAttribute("aria-pressed",x===b)});if(document.activeElement)document.activeElement.blur();upd()});
-/* ---------- vote topics (from the „Теми“ tab via ?config=1 / ?tally=1; cached; built-in fallback) ---------- */
-var TOPKEY="sevina.topics.v1",MAX_TOPICS=10;
-var TOPICS=$$(".theme",themesBox).map(function(b){return b.dataset.theme});   // built-in list in index.html
-var TOPIC_SRC="вградени",TOPIC_AT=null,pendingTopics=null;
-function tLen(s){return s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,"_").length}   // emoji = 1 (built-in "🎬 Филми и сериали" = 17 fits half width)
+/* ---------- vote topics (from the „Теми“ tab via ?config=1 / ?tally=1; sheet list only, cached) ---------- */
+var TOPKEY="sevina.topics.v2",MAX_TOPICS=10;
+var TOPICS=[];
+var TOPIC_SRC="зареждане",TOPIC_AT=null,pendingTopics=null;
+function tLen(s){return s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,"_").length}   // emoji = 1
 function tKey(s){return norm(s).toLocaleLowerCase("bg")}
 function topicIdx(list,s){var k=tKey(s);for(var i=0;i<list.length;i++)if(tKey(list[i])===k)return i;return -1}
 function cleanTopics(a){var out=[];(a||[]).forEach(function(x){x=norm(String(x==null?"":x));if(x&&topicIdx(out,x)<0&&out.length<MAX_TOPICS)out.push(x)});return out}
 function renderTopics(){
+  var wait=$("#topics-wait");
   themesBox.innerHTML="";
+  if(!TOPICS.length){
+    if(wait){wait.hidden=false;wait.textContent=(TOPIC_SRC==="грешка"||navigator.onLine===false)?"Темите ще се покажат след връзка с интернет.":"Зареждане на темите…";}
+    if(theme)theme="";
+    return;
+  }
+  if(wait)wait.hidden=true;
   var col=0,many=TOPICS.length>6,LIM=many?19:18;themesBox.classList.toggle("many",many);
   TOPICS.forEach(function(t,i){var b=document.createElement("button");b.type="button";b.className="theme";b.dataset.theme=t;b.textContent=t;
     var wide=tLen(t)>LIM;var next=TOPICS[i+1];
@@ -223,7 +230,7 @@ function renderTopics(){
 function setTopics(list,src){var l=cleanTopics(list);if(!l.length)return false;
   TOPIC_SRC=src||"таблица";TOPIC_AT=new Date();save(TOPKEY,{list:l,at:Date.now()});
   if(l.join("\n")===TOPICS.join("\n"))return false;
-  if(cur==="vote"&&!form.hidden){pendingTopics=l;return false}
+  if(cur==="vote"&&!form.hidden&&TOPICS.length){pendingTopics=l;return false}
   TOPICS=l;pendingTopics=null;renderTopics();upd();
   if(cur==="vote"&&form.hidden)showClosedTally();
   return true}
@@ -669,7 +676,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=renum";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=clean";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
@@ -713,12 +720,16 @@ window.__applyPending=function(){if(pendingTopics){var l=pendingTopics;pendingTo
   if(pendingSeat){var p=pendingSeat;pendingSeat=null;applySeating(p.s,p.src)}};
 (function(){var c=load(SEATKEY,null);if(c&&c.week>=weekKey())applySeating({source:"sheet",week:c.week,nights:c.nights},"кеш")})();
 var cfgBusy=false;
-function fetchConfig(){if(!URL_||cfgBusy||navigator.onLine===false)return;cfgBusy=true;
+function markTopicsFailed(){if(TOPICS.length)return;TOPIC_SRC="грешка";renderTopics()}
+function fetchConfig(){if(!URL_||cfgBusy)return;
+  if(navigator.onLine===false){markTopicsFailed();return}
+  cfgBusy=true;
   tfetch(URL_+(URL_.indexOf("?")<0?"?":"&")+"config=1&_="+Date.now(),{method:"GET"},C.TALLY_TIMEOUT_MS||12000).then(function(r){return r.json()}).then(function(j){
-    CFG_ERR="";if(!j||!j.ok){CFG_ERR=(j&&j.error)||"грешка";return}
+    CFG_ERR="";if(!j||!j.ok){CFG_ERR=(j&&j.error)||"грешка";markTopicsFailed();return}
     if(j.topics&&j.topics.source==="sheet")setTopics(j.topics.list,"таблица");
     if(j.seating)applySeating(j.seating,"таблица");
-  }).catch(function(e){CFG_ERR=String(e&&e.message||e)}).then(function(){cfgBusy=false})}
+    if(!TOPICS.length)markTopicsFailed();
+  }).catch(function(e){CFG_ERR=String(e&&e.message||e);markTopicsFailed()}).then(function(){cfgBusy=false})}
 setTimeout(fetchConfig,1500);setInterval(fetchConfig,(C.CONFIG_POLL_SECONDS||60)*1000);
 addEventListener("online",fetchConfig);document.addEventListener("visibilitychange",function(){if(!document.hidden)fetchConfig()});
 window.__config={fetch:fetchConfig,applySeating:applySeating};
