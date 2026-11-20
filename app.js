@@ -167,8 +167,8 @@ function upd(){var en=check(fn.value,"name"),et=teamErr();
 function show(inp,el,m){el.textContent=m;inp.classList.toggle("bad",!!m)}
 function setTeam(n){teamSel=n||"";ftv.textContent=teamSel||"Избери отбора си";ftv.classList.toggle("ph",!teamSel);
   $$(".topt",tlist).forEach(function(o){o.classList.toggle("sel",o.dataset.team===teamSel);o.setAttribute("aria-selected",o.dataset.team===teamSel)})}
-tlist.innerHTML=TEAMS.length?TEAMS.map(function(t){return '<button type="button" class="topt" role="option" data-team="'+escH(t.name)+'">'+escH(t.name)+'</button>'}).join(""):'<div class="tempty">Няма отбори в списъка за този уикенд.</div>';
-if(!TEAMS.length)ft.disabled=true;
+function renderTeamList(){tlist.innerHTML=TEAMS.length?TEAMS.map(function(t){return '<button type="button" class="topt" role="option" data-team="'+escH(t.name)+'">'+escH(t.name)+'</button>'}).join(""):'<div class="tempty">Няма отбори в списъка за този уикенд.</div>';ft.disabled=!TEAMS.length;if(teamSel)setTeam(teamSel);}
+renderTeamList();
 function openPick(){if(!TEAMS.length)return;hideSug();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();pick.hidden=false;ft.classList.add("open");}
 function closePick(){pick.hidden=true;ft.classList.remove("open")}
 ft.addEventListener("click",function(){if(pick.hidden)openPick();else closePick()});
@@ -676,7 +676,7 @@ window.__standings={draw:showStandList,home:showStandHome,team:showStandTeam,nig
     set(hi);
   }
   function loadMap(){
-    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=clean";
+    var url=mapUrl+(mapUrl.indexOf("?")>=0?"&":"?")+"v=teamfix";
     fetch(url,{cache:"reload"}).then(function(r){if(!r.ok)throw new Error("map");return r.text()})
       .then(function(txt){if(txt&&txt.indexOf("<svg")>=0) mountMap(txt); else showPlace();})
       .catch(function(){showPlace()});
@@ -712,7 +712,7 @@ function applySeating(s,src){
   if(sig===JSON.stringify(D0.nights)&&D0.example===false)return false;
   if(cur==="vote"&&!form.hidden){pendingSeat={s:s,src:src};return false}
   D0.nights=nights;D0.example=false;pendingSeat=null;
-  pickNights();buildTeams();fillKakvo();
+  pickNights();buildTeams();renderTeamList();fillKakvo();
   if(teamSel&&!TEAM_BY[key(teamSel)])setTeam("");
   if(window.__seating&&window.__seating.refresh)window.__seating.refresh();
   upd();return true}

@@ -1,7 +1,7 @@
-/* Sevina kiosk service worker – version clean (staged 20.11.2026, based on renum f91c632) */
-var VERSION = "clean";
+/* Sevina kiosk service worker – version teamfix (staged 20.11.2026, based on clean 4a650f7) */
+var VERSION = "teamfix";
 var CACHE = "sevina-kiosk-" + VERSION;
-var PRECACHE = ["./", "map-v19.svg?v=clean", "style.css?v=clean", "config.js?v=clean", "seating.js?v=clean", "app.js?v=clean", "assets/bg-corners-portrait.jpg?v=clean", "assets/brain.png?v=clean", "assets/title-portrait.jpg?v=clean", "fonts/LobsterTwo-Bold.ttf?v=clean", "fonts/NotoColorEmoji-subset.ttf?v=clean", "fonts/Rubik.ttf?v=clean"];
+var PRECACHE = ["./", "map-v19.svg?v=teamfix", "style.css?v=teamfix", "config.js?v=teamfix", "seating.js?v=teamfix", "app.js?v=teamfix", "assets/bg-corners-portrait.jpg?v=teamfix", "assets/brain.png?v=teamfix", "assets/title-portrait.jpg?v=teamfix", "fonts/LobsterTwo-Bold.ttf?v=teamfix", "fonts/NotoColorEmoji-subset.ttf?v=teamfix", "fonts/Rubik.ttf?v=teamfix"];
 var NAV_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", function (e) {
