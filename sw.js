@@ -1,7 +1,7 @@
-/* Sevina kiosk service worker – version tonightonly (staged 20.11.2026, based on teamfix b83e9f2) */
-var VERSION = "tonightonly";
+/* Sevina kiosk service worker – version 307787b8c2 */
+var VERSION = "307787b8c2";
 var CACHE = "sevina-kiosk-" + VERSION;
-var PRECACHE = ["./", "map-v19.svg?v=tonightonly", "style.css?v=tonightonly", "config.js?v=tonightonly", "seating.js?v=tonightonly", "app.js?v=tonightonly", "assets/bg-corners-portrait.jpg?v=tonightonly", "assets/brain.png?v=tonightonly", "assets/title-portrait.jpg?v=tonightonly", "fonts/LobsterTwo-Bold.ttf?v=tonightonly", "fonts/NotoColorEmoji-subset.ttf?v=tonightonly", "fonts/Rubik.ttf?v=tonightonly"];
+var PRECACHE = ["./", "style.css?v=307787b8c2", "config.js?v=307787b8c2", "seating.js?v=307787b8c2", "app.js?v=307787b8c2", "map-v19.svg?v=307787b8c2", "assets/bg-corners-portrait.jpg?v=307787b8c2", "assets/brain.png?v=307787b8c2", "assets/title-portrait.jpg?v=307787b8c2", "fonts/LobsterTwo-Bold.ttf?v=307787b8c2", "fonts/NotoColorEmoji-subset.ttf?v=307787b8c2", "fonts/Rubik.ttf?v=307787b8c2"];
 var NAV_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", function (e) {

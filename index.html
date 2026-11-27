@@ -4,18 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="app-version" content="tonightonly">
 <meta name="color-scheme" content="dark">
-<title>Sevina 2.0 Quiz – киоск</title>
-<link rel="stylesheet" href="style.css?v=tonightonly">
+<meta name="app-version" content="307787b8c2"><title>Sevina 2.0 Quiz – киоск</title>
+<link rel="stylesheet" href="style.css?v=307787b8c2">
 </head>
 <body>
 <div id="stage">
 
-<section id="home" class="screen home six active" data-t="0">
+<section id="home" class="screen home seven active" data-t="0">
   <div class="wrap">
     <div class="hero">
-      <img class="herobrain logo" src="assets/brain.png?v=tonightonly" alt="">
+      <img class="herobrain logo" src="assets/brain.png?v=307787b8c2" alt="">
       <div class="htitle">Sevina 2.0 Quiz</div>
       <div class="hsub">Докосни бутон, за да научиш повече 👇</div>
     </div>
@@ -24,6 +23,7 @@
     <button class="btn" data-go="klasirane">🏆 Сезонно класиране</button>
     <button class="btn" data-go="vote" id="btn-vote">🗳️ Гласувай за следващия тематичен куиз</button>
     <button class="btn" data-go="seating">🪑 Къде седи отборът ти?</button>
+    <button class="btn" data-go="chastni">🎉 Частни събития</button>
     <button class="btn" data-go="zanas">👋 За нас</button>
   </div>
 </section>
@@ -32,7 +32,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Как протича тази куиз вечер?</h1>
     <div class="card" id="kakvo-card" style="--f:41px;--g:16px"></div>
@@ -44,7 +44,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>Правила и точкуване</h1>
     <div class="card" style="--f:44px;--g:22px">
@@ -65,7 +65,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" id="sback" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 id="stand-title">Сезонно класиране</h1>
     <div id="stand-home">
@@ -103,7 +103,7 @@
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="st">🪑 Къде седи отборът ти?</h1>
     <div class="ssub" id="ssub">Докоснете името на отбора си, за да видите къде седите</div>
@@ -118,11 +118,34 @@
   </div>
 </section>
 
+
+<section id="chastni" class="screen" data-t="120">
+  <div class="wrap">
+    <div class="top">
+      <button class="back" data-go="home">← Начало</button>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
+    </div>
+    <h1>🎉 Частни събития в Sevina</h1>
+    <div class="card" style="--f:38px;--g:16px">
+      <p class="lead">Рожден ден, детско парти, тиймбилдинг или просто купон с приятели? Sevina е вашето място!</p>
+      <p>🥳 Обикновено парти с храна, напитки и музика – или с куиз за цвят.</p>
+      <p>🎂 Куиз, посветен на рожденика: въпроси за неговия живот, любими филми и смешни истории.</p>
+      <p>🧒 Детски рождени дни със забавен куиз, подходящ за малките.</p>
+      <p>🧠 Темата, която все не печели седмичния вот, може най-сетне да е само ваша.</p>
+      <p>📅 Запазете поне една седмица предварително.</p>
+      <p>☎️ 0878873083 или на място при Мартин и Янис.</p>
+      <p>ℹ️ В петък и събота вечер имаме куиз, затова частните събития се провеждат в останалите дни или в петък и събота до 17:00 ч.</p>
+      <p class="cta">Съберете компанията, а ние ще направим празника незабравим!</p>
+    </div>
+    <div class="foot"><div class="bar"><i></i></div><span class="cd">Връщане към началото след <b class="n"></b> сек. без докосване</span></div>
+  </div>
+</section>
+
 <section id="zanas" class="screen" data-t="110">
   <div class="wrap">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1>👋 За нас</h1>
     <div class="card" style="--f:34px;--g:14px">
@@ -141,7 +164,7 @@
   <div class="wrap vscroll">
     <div class="top">
       <button class="back" data-go="home">← Начало</button>
-      <div class="mini logo"><img src="assets/brain.png?v=tonightonly" alt="">Sevina 2.0 Quiz</div>
+      <div class="mini logo"><img src="assets/brain.png?v=307787b8c2" alt="">Sevina 2.0 Quiz</div>
     </div>
     <h1 class="vt">🗳️ Ти избираш темата!</h1>
     <p class="vsub">Гласувай за темата на следващата тематична куиз вечер в петък.</p>
@@ -186,7 +209,7 @@
 <section id="thanks" class="screen" data-t="15">
   <div class="wrap">
     <div class="tbox">
-      <img class="herobrain" src="assets/brain.png?v=tonightonly" alt="">
+      <img class="herobrain" src="assets/brain.png?v=307787b8c2" alt="">
       <div class="t1">✅ Благодарим!</div>
       <div class="t2">Гласът ти е записан.</div>
       <div class="tally">
@@ -213,29 +236,24 @@
 <div id="toast"></div>
 </div>
 
-<script src="config.js?v=tonightonly"></script>
-<script src="seating.js?v=tonightonly"></script>
-<script src="app.js?v=tonightonly"></script>
-<script>
-(function(){
-  window.APP_VERSION="tonightonly";
-  if(!("serviceWorker" in navigator)) return;
-  var hadController=!!navigator.serviceWorker.controller, pending=false;
-  function doReload(){
-    var k=window.__kiosk;
-    if(k&&k.cur!=="home"||!document.getElementById("admin").hidden){pending=true;return}
-    location.reload();
-  }
-  navigator.serviceWorker.addEventListener("controllerchange",function(){if(!hadController){hadController=true;return}doReload()});
-  setInterval(function(){if(pending)doReload()},3000);
-  addEventListener("load",function(){
-    navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(function(reg){
-      function check(){if(navigator.onLine!==false)reg.update().catch(function(){})}
-      setInterval(check,5*60*1000);addEventListener("online",check);
-      document.addEventListener("visibilitychange",function(){if(!document.hidden)check()});
-    }).catch(function(e){console.warn("SW register failed",e)});
-  });
-})();
-</script>
-</body>
+<script src="config.js?v=307787b8c2"></script>
+<script src="seating.js?v=307787b8c2"></script>
+<script src="app.js?v=307787b8c2"></script>
+<script>(function(){window.APP_VERSION="307787b8c2";
+if(!("serviceWorker" in navigator))return;
+var hadController=!!navigator.serviceWorker.controller,pending=false;
+function doReload(){var k=window.__kiosk;
+  // never interrupt someone mid-vote: reload only on the home screen with no admin panel open
+  if(k&&k.cur!=="home"||!document.getElementById("admin").hidden){pending=true;return}
+  location.reload()}
+navigator.serviceWorker.addEventListener("controllerchange",function(){if(!hadController){hadController=true;return}doReload()});
+setInterval(function(){if(pending)doReload()},3000);
+addEventListener("load",function(){
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(function(reg){
+    function check(){if(navigator.onLine!==false)reg.update().catch(function(){})}
+    setInterval(check,5*60*1000);addEventListener("online",check);
+    document.addEventListener("visibilitychange",function(){if(!document.hidden)check()});
+  }).catch(function(e){console.warn("SW register failed",e)});
+});})();
+</script></body>
 </html>
